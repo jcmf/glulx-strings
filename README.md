@@ -69,7 +69,7 @@ show you the text, bam, done.
 
 So I'm working on that.  Of course I'm not going to be writing any
 Javascript by hand, I mean that would be crazy.  I'll be using
-CoffeeScript instead: http://coffeescript.org/
+[CoffeeScript](http://coffeescript.org/) instead.
 
 As of this writing, both the Python and the Javascript versions of
 the CLI-based extractor are working.  I still need to slap an HTML
@@ -108,8 +108,8 @@ way this'll work even if it's just a plain Glulx file, or some other
 kind of file with a `.gblorb` and/or Glulx embedded in it, so long
 as it's not like compressed or encoded in some other fancy way.
 
-If you want, you can read the Glulx specification here:
-http://www.eblong.com/zarf/glulx/
+If you want, you can read the [Glulx
+specification](http://www.eblong.com/zarf/glulx/).
 
 The Glulx header is 36 bytes long and starts with the 4-byte sequence
 `Glul` (the "magic number") followed by a big-endian version number
