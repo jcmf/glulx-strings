@@ -131,12 +131,12 @@ hand us.
           break
       if not glulx_start? then fail 'not a glulx file'
 
-Okay, so at this point bytes[glulx_start] should be the first byte
-of the Glulx header and VM address space.  Pointer addresses are
-always in bytes, even if the type being addressed is larger than
-one byte, because there are no alignment requirements.  The basic
-types we care about are unsigned 8-bit and 32-bit numbers.  8-bit
-is super easy:
+Okay, so at this point `bytes[glulx_start]` should be the first
+byte of the Glulx header and VM address space.  Pointer addresses
+are always in bytes, even if the type being addressed is larger
+than one byte, because there are no alignment requirements.  The
+basic types we care about are unsigned 8-bit and 32-bit numbers.
+8-bit is super easy:
 
       u8 = (addr) -> bytes[glulx_start + addr]
 
@@ -231,10 +231,10 @@ current Inform compiler uses such highfalutin' constructions, I
 haven't seen them in the wild yet.  Though I haven't looked very
 hard.
 
-This routine could proably just use the enclosing routine's cb
-unconditionally, because we're not going to reuse decode_huffman
-for some other purpose like we're about to with decode_u8 and
-decode_u32, but what the hell, may as well try to be consistent,
+This routine could proably just use the enclosing routine's `cb`
+unconditionally, because we're not going to reuse `decode_huffman`
+for some other purpose like we're about to with `decode_u8` and
+`decode_u32`, but what the hell, may as well try to be consistent,
 right?
 
       decode_huffman = (addr, cb) ->
@@ -361,6 +361,18 @@ as opposed to being `require`d by someone else's script?  Right:
       exports.extract_strings bytes, (s) ->
         s = s.trimRight()
         if s then console.log s
+
+I'm applying `trimRight` because leading whitespace can sometimes
+be interesting, but trailing whitespace is hard to even see, except
+if it's a trailing newline of course, in which case it's just
+annoying, at least when presented in this way.  I'm waiting until
+this late in the game to trim because it's easy to imagine someone
+wanting to build something on top of `extract_strings` that did
+care about trailing whitespace.  I figure if you're using this CLI
+wrapper but you're piping it into something else and you want it
+to not trim, you'll just hack it up to not trim.  And maybe use
+`'\x00'` string terminators instead of `console.log`'s newlines,
+or something.
 
 Hmm... the output doesn't seem to be completely identical to the
 Python version.  A few of the false positives in the test file I
