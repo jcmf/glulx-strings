@@ -114,21 +114,22 @@ http://www.eblong.com/zarf/glulx/
 The Glulx header is 36 bytes long and starts with the 4-byte sequence
 `Glul` (the "magic number") followed by a big-endian version number
 whose first byte is likely to be zero.  (If it isn't zero, the major
-version number is greater than 255.x.x -- latest is 3.x.x as I write
+version number is greater than 255.x.x -- latest is 3.1.2 as I write
 this -- and major version bumps are likely to break things, so we're
 probably screwed anyway).  I want to check for the zero byte in
 addition to the magic number so as to avoid being fooled too easily
 by any stray text earlier in whatever file the user happened to
 hand us.
 
+      fail = (msg) -> throw new Error msg
       header_size = 36
-      if bytes.length < header_size then return
+      if bytes.length < header_size then fail 'file is too short to be glulx'
       for i in [0...bytes.length-header_size]
         if (bytes[i] == 71 and bytes[i+1] == 108 and bytes[i+2] == 117 and
             bytes[i+3] == 108 and bytes[i+4] == 0)
           glulx_start = i
           break
-      if not glulx_start? then return
+      if not glulx_start? then fail 'not a glulx file'
 
 Okay, so at this point bytes[glulx_start] should be the first byte
 of the Glulx header and VM address space.  Pointer addresses are
@@ -261,16 +262,14 @@ right?
           tree_node = huffman_root
 
 Hmm, I think that assertion I stuck in there is only guaranteed to
-hold if we first ensure that the Huffman table is non-trivial.  But
+hold if we first ensure that the Huffman table is non-trivial.  And
 actually there are lots of ways the whole thing could blow up if
 we get a valid-looking Glulx file that happens to have an invalid
-Huffman table.  I'm not going to stress about that too much right
-now -- ultimately I doubt the caller's going to care all that much
-about the subtle distinction between returning and raising an
-exception.  For the record, any exception thrown (array index out
-of bounds, assertion failure, or the like) means that the file
-looked valid at first but is actually corrupt!  Or that my code is
-buggy, of course, but I mean that goes without saying.
+Huffman table.  Maybe it would be best to validate the whole tree
+up front?  I'm not going to stress about that too much right now,
+but I might want to come back to this, because it occurs to me that,
+with no bounds checking in this code, we could easily end up trying
+to loop forever.  I would rather assert or raise an exception.
 
 Oh, but I should probably at least pull in the `assert` module
 before trying to use it, right?  Damn.  Well, it's not too late,
@@ -306,9 +305,9 @@ to each string, as additional positional arguments, so the caller
 can deduplicate or reorder if they really want to.  Since this is
 Javascript, nobody will notice or care if we pass extra arguments
 that wind up going unused.  In the weird case where we split a
-string into pieces because it contained indirect placeholders, all
-of the pieces will have the same code and data addresses, so the
-caller will have a clue about what's going on, in case someone
+compressed string into pieces because it contained wacky placeholders,
+all of the pieces will have the same code and data addresses, so
+the caller will have a clue about what's going on, in case someone
 cares.
 
 Of course, you'll have noticed that the routines above only invoke
@@ -320,7 +319,7 @@ with an empty string in a few corner cases.  That doesn't really
 ever seem like a helpful or meaningful thing to do, so I'm just
 going to filter those out in the wrapper.  In practice I'm not sure
 if it matters either way, since I bet those corner cases don't come
-up, but whatever.
+up in any of the real files I'm likely to try, but whatever.
 
       for code_addr in [code_start...code_end]
         data_addr = u32 code_addr
@@ -331,8 +330,12 @@ up, but whatever.
           when 0xe1 then decode_huffman data_addr+1, wrapped_cb
           when 0xe2
             if 0 is u8(data_addr+1) is u8(data_addr+2) is u8(data_addr+3)
-              decode_u32 data+addr+4, wrapped_cb
+              decode_u32 data_addr+4, wrapped_cb
       return
+
+The `return` at the end is there to talk CoffeeScript out of helpfully
+building up an array of all the accumulated callback return values
+and returning it.
 
 And that's our exported function!  If you're building some piece
 of software that needs to be able to extract strings from these
@@ -363,6 +366,15 @@ Hmm... the output doesn't seem to be completely identical to the
 Python version.  A few of the false positives in the test file I
 tried are missing.  I suppose if I were feeling ambitious I would
 track down the discrepancy and fix either that version or this one.
+
+For a large-ish game (Hadean Lands), it looks like the Javascript
+version runs in less than 10% of the time the Python takes, even
+though the Python version is leaning more heavily on C modules
+(`struct` and `re`) to try to help speed up things that the Javascript
+version is just doing by itself.  Javascript (and node in particular)
+tends to be much faster for this kind of compute-heavy stuff, because
+so many resources get poured into improving the JIT, because web
+browsers.
 
 ## License
 

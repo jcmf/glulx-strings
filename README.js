@@ -3,10 +3,13 @@
   var bytes, fs;
 
   exports.extract_strings = function(bytes, cb) {
-    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
+    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, fail, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
+    fail = function(msg) {
+      throw new Error(msg);
+    };
     header_size = 36;
     if (bytes.length < header_size) {
-      return;
+      fail('file is too short to be glulx');
     }
     for (i = _i = 0, _ref = bytes.length - header_size; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
       if (bytes[i] === 71 && bytes[i + 1] === 108 && bytes[i + 2] === 117 && bytes[i + 3] === 108 && bytes[i + 4] === 0) {
@@ -15,7 +18,7 @@
       }
     }
     if (glulx_start == null) {
-      return;
+      fail('not a glulx file');
     }
     u8 = function(addr) {
       return bytes[glulx_start + addr];
@@ -107,7 +110,7 @@
     assert = require('assert');
     for (code_addr = _j = code_start; code_start <= code_end ? _j < code_end : _j > code_end; code_addr = code_start <= code_end ? ++_j : --_j) {
       data_addr = u32(code_addr);
-      if ((!data_start <= data_addr && data_addr < data_end)) {
+      if (!((data_start <= data_addr && data_addr < data_end))) {
         continue;
       }
       wrapped_cb = function(s) {
@@ -124,7 +127,7 @@
           break;
         case 0xe2:
           if (((0 === (_ref2 = u8(data_addr + 1)) && _ref2 === (_ref1 = u8(data_addr + 2))) && _ref1 === u8(data_addr + 3))) {
-            decode_u32(data + addr + 4, wrapped_cb);
+            decode_u32(data_addr + 4, wrapped_cb);
           }
       }
     }
@@ -134,7 +137,10 @@
     fs = require('fs');
     bytes = fs.readFileSync(process.argv[2]);
     exports.extract_strings(bytes, function(s) {
-      return console.log(s);
+      s = s.trimRight();
+      if (s) {
+        return console.log(s);
+      }
     });
   }
 
