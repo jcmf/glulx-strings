@@ -1,0 +1,19 @@
+{
+  "name": "glulx-strings",
+  "version": "0.0.0",
+  "description": "extract raw text fragments from interactive fiction glulx gblorb Inform",
+  "main": "index.js",
+  "scripts": {
+    "test": "false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jcmf/glulx-strings.git"
+  },
+  "author": "jcmf",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jcmf/glulx-strings/issues"
+  },
+  "homepage": "https://github.com/jcmf/glulx-strings"
+}
