@@ -15,10 +15,10 @@ or a forum thread, anything, nope, crickets.
 
 Anyway this thing takes the contents of a gblorb file (containing
 a Glulx game -- doesn't support Z-machine, sorry) and extracts the
-text.  Typically this includes both all of the printable text in
-the game, often including various internal identifiers that might
-or might not actually be printable but are nonetheless in there so
-the game can try to emit helpful diagnostics in case it finds itself
+text.  Typically this includes all of the printable text in the
+game, often including various internal identifiers that might or
+might not actually be printable but are nonetheless in there so the
+game can try to emit helpful diagnostics in case it finds itself
 in an unexpected situation and does not know how else to proceed.
 
 [I feel like an example would be helpful.  Maybe I can come up with
@@ -28,14 +28,14 @@ You would think this would be super easy -- I mean normally when
 you have a computer program and you want to see the text it contains,
 you can run something like the `strings` Unix command on it, which
 mostly just looks through the file for any sequence of 4 or more
-consecutive ASCII characters and shows you those, which is surprisingly
-effective.  But for Glulx (and Z-code) this tends not to work,
-because the text is usually compressed, using a Huffman encoding
-scheme.  I guess back in the Infocom days it was important to do this
-in order to be able to fit more game on a floppy disk, and I assume
-that the practice has persisted because there was no compelling reason
-to stop doing it and also because it makes it that much harder to
-cheat.  [Erm.  Sorry about that.]
+consecutive printable ASCII characters and shows you those, which
+is surprisingly effective.  But for Glulx (and Z-code) this tends
+not to work, because the text is usually compressed, using a Huffman
+encoding scheme.  I guess back in the Infocom days it was important
+to do this in order to be able to fit more game on a floppy disk,
+and I assume that the practice has persisted because there was no
+compelling reason to stop doing it and also because it makes it
+that much harder to cheat.  [Erm.  Sorry about that.]
 
 Anyway!  I think the strategy used by this glulx-strings thing
 you're looking at is interesting -- normally you'd need a disassembler,
