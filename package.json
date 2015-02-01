@@ -2,9 +2,9 @@
   "name": "glulx-strings",
   "version": "0.0.0",
   "description": "extract raw text fragments from interactive fiction glulx gblorb Inform",
-  "main": "index.js",
+  "main": "README.js",
   "scripts": {
-    "test": "false"
+    "prepublish": "coffee -cl README.md"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/jcmf/glulx-strings/issues"
   },
-  "homepage": "https://github.com/jcmf/glulx-strings"
+  "homepage": "https://github.com/jcmf/glulx-strings",
+  "devDependencies": {
+    "coffee-script": "^1.9.0"
+  }
 }
