@@ -2,40 +2,45 @@
 
 extract raw text fragments from interactive fiction glulx gblorb Inform
 
-Okay, so, maybe you've written a shiny new text adventure game in
-Inform 7 and sent the .gblorb out to your testers and then accidentally
-drop your computer over the side of your boat and the backups are
-a lie and you don't care that much about the game logic but you
-really want to get all that prose back.  Or maybe you're playing a
-text adventure game and you've gotten really invested but you got
-stuck halfway through and you've been banging your head against it
-for weeks but there are no hints or they aren't doing it for you
-and you've broken down and searched everywhere for a walkthrough
-or a forum thread, anything, nope, crickets.
+## wtf is this thing?!  Plz expln plz!
 
-Anyway this thing takes the contents of a gblorb file (containing
+Okay, so, maybe you've written a shiny new text adventure game in
+Inform 7 and sent the `.gblorb` out to your testers and then
+accidentally drop your computer over the side of your boat and the
+backups are a lie and you don't care that much about the game logic
+but you really want to get all that prose back.  Or maybe you
+stumbled across an obscure work of interactive fiction and you've
+gotten really invested but you got stuck halfway through and you've
+been banging your head against it for weeks but there are no hints
+or they aren't doing it for you and you've broken down and searched
+everywhere for a walkthrough or a forum thread, anything, nope,
+crickets.
+
+Anyway this thing takes the contents of a `.gblorb` file (containing
 a Glulx game -- doesn't support Z-machine, sorry) and extracts the
-text.  Typically this includes all of the printable text in the
-game, often including various internal identifiers that might or
-might not actually be printable but are nonetheless in there so the
-game can try to emit helpful diagnostics in case it finds itself
-in an unexpected situation and does not know how else to proceed.
+text.  Typically this includes all of the text visible in the game.
+It may also include various internal identifiers that might or might
+not actually be theoretically reachable but are nonetheless in there
+so the game can try to emit helpful diagnostics in case it finds
+itself in an unexpected situation and does not know how else to
+proceed.
 
 [I feel like an example would be helpful.  Maybe I can come up with
 one later and stick it here.]
 
 You would think this would be super easy -- I mean normally when
-you have a computer program and you want to see the text it contains,
-you can run something like the `strings` Unix command on it, which
-mostly just looks through the file for any sequence of 4 or more
-consecutive printable ASCII characters and shows you those, which
-is surprisingly effective.  But for Glulx (and Z-code) this tends
-not to work, because the text is usually compressed, using a Huffman
-encoding scheme.  I guess back in the Infocom days it was important
-to do this in order to be able to fit more game on a floppy disk,
-and I assume that the practice has persisted because there was no
-compelling reason to stop doing it and also because it makes it
-that much harder to cheat.  [Erm.  Sorry about that.]
+you have a computer program in some non-human-readable form and you
+want to see the text it contains, you can run something like the
+`strings` Unix command on it, which mostly just looks through the
+file for any sequence of 4 or more consecutive printable ASCII
+characters and shows you those, which is surprisingly effective.
+But for Glulx (and Z-code) this tends not to work, because the text
+is usually compressed, using a Huffman encoding scheme.  I guess
+back in the Infocom days it was important to do this in order to
+be able to fit more game on a floppy disk, and I assume that the
+practice has persisted because there was no compelling reason to
+stop doing it and also because it makes it that much harder to
+cheat.  [Erm.  Sorry about that.]
 
 Anyway!  I think the strategy used by this glulx-strings thing
 you're looking at is interesting -- normally you'd need a disassembler,
@@ -50,22 +55,28 @@ simple heuristics to greatly cut down on the amount of noise, if
 you even care, which you probably don't that much really.  Maybe
 I'll write more about all that later.
 
-Anyway for now I've just posted my initial Python implementation,
-but it occurred to me that it would be way better to do this in
-Javascript, because I am assuming that you are probably a human
-being and most human beings do not know off the top of their heads
-how to run a Python program and get it to do something useful, and
-those who do have some idea of what's involved often have better
-things to do with their time, whereas if this thing is Javascript
-it can live on a web page and you can just drag the file onto the
-page and it can show you the text, bam, done.
+For now, I've posted my initial Python implementation, but it
+occurred to me that it would be way better to do this in Javascript,
+because I am assuming that you are probably a human being and most
+human beings do not know off the top of their heads how to run a
+Python program and get it to do something useful, and those who do
+have some idea of what's involved often have better things to do
+with their time, whereas if this thing is Javascript it can live
+on a web page and you can just drag the file onto the page and it
+can show you the text, bam, done.
 
-So I'mma work on that maybe.
+So I'm working on that.  Of course I'm not going to be writing any
+Javascript by hand, I mean that would be crazy.  I'll be using
+CoffeeScript instead: http://coffeescript.org/
+
+(Note that, as of this writing, the Python version works but the
+Javascript/CoffeeScript version doesn't.  At least, it doesn't seem
+to.)
 
 ## Let's see here.
 
 So actually I think I can just write the code right in here, right?
-And then `coffee -l` will extract the code bits and compile them
+And then `coffee -cl` will extract the code bits and compile them
 and it'll all be good.  Probably!
 
 Let us begin.
@@ -77,33 +88,39 @@ with one string each time, and then returns.  Not that that's really
 asynchronous, exactly, but it's... incremental?  The caller knows
 it's got the last string when the function has returned.  The
 callback won't get invoked again later.  It's purely synchronous,
-really.
+really, but you might not have to wait as long before you start
+getting strings back.
 
 Let's call this function, uh, extract_strings.
 
     exports.extract_strings = (bytes, cb) ->
 
 Okay, so, first thing we need to do is... I'm assuming most people
-are going to want to pass in a .gblorb, because most games come
+are going to want to pass in a `.gblorb`, because most games come
 packaged that way... er, most IF games written with Inform 7, I
 should say?  As opposed to a plain Glulx file, is what I mean.  So
-we first need to find the Glulx.  And so a .gblorb is some kind of
-IFF file and we could parse it and find the right chunk, or we could
-just say screw that and look for the Glulx header, and that way
-this'll work even if it's some other kind of file with a .gblorb
+we first need to find the Glulx.  And so a `.gblorb` is some kind
+of IFF file and we could parse it and find the right chunk, or we
+could just say screw that and look for the Glulx header, and that
+way this'll work even if it's some other kind of file with a `.gblorb`
 and/or Glulx embedded in it, so long as it's not like compressed
 or encoded in some other fancy way.
 
-The header is 36 bytes long and starts with the 4-byte sequence
-"Glul" (the "magic number") followed by a big-endian version number
+If you want, you can read the Glulx specification here:
+http://www.eblong.com/zarf/glulx/
+
+The Glulx header is 36 bytes long and starts with the 4-byte sequence
+`Glul` (the "magic number") followed by a big-endian version number
 whose first byte is likely to be zero.  (If it isn't zero, the major
 version number is greater than 255.x.x -- latest is 3.x.x as I write
 this -- so we're probably screwed anyway).  I want to check for the
 zero byte in addition to the magic number so as to avoid being
-fooled by any stray text earlier in the file.
+fooled by any stray text earlier in whatever file the user happened
+to hand us.
 
-      if bytes.length < 36 then return
-      for i in [0...bytes.length-36]
+      header_size = 36
+      if bytes.length < header_size then return
+      for i in [0...bytes.length-header_size]
         if (bytes[i] == 71 and bytes[i+1] == 108 and bytes[i+2] == 117 and
             bytes[i+3] == 108 and bytes[i+4] == 0)
           glulx_start = i
@@ -111,14 +128,11 @@ fooled by any stray text earlier in the file.
       if not glulx_start? then return
 
 Okay, so at this point bytes[glulx_start] should be the first byte
-of the Glulx header and VM address space.  If you want, you can
-read the Glulx specification here: http://www.eblong.com/zarf/glulx/
-
-The start of the file is also the start of the virtual machine's
-address space, and addresses are in bytes, even if the type being
-addressed is larger than one byte, because there are no alignment
-requirements.  The basic types we care about are unsigned 8-bit and
-32-bit numbers.  8-bit is super easy:
+of the Glulx header and VM address space.  Pointer addresses are
+always in bytes, even if the type being addressed is larger than
+one byte, because there are no alignment requirements.  The basic
+types we care about are unsigned 8-bit and 32-bit numbers.  8-bit
+is super easy:
 
       u8 = (addr) -> bytes[glulx_start + addr]
 
@@ -152,10 +166,10 @@ there, it doesn't matter.  Instead let's do this:
       string_table_size = u32 string_table_start
       string_table_end = string_table_start + string_table_size
       huffman_root = u32 string_table_start+8
-      code_start = 36
+      code_start = header_size
       code_end = string_table_start
       data_start = string_table_end
-      data_end = Math.min ram_start, bytes.length-glulx_start
+      data_end = ram_start
 
 Okay!  Now let's make some string-decoding routines!  Section 1.6.1
 lists three kinds of strings: unencoded string, unencoded Unicode
@@ -164,7 +178,7 @@ really care about compressed strings, as far as I can tell, but the
 other two are easy so what the hell.
 
 Let's start with unencoded strings.  These start with 0xe0 followed
-by a zero-terminated ISO-8859-1 string, meaning that each unsigned
+by a NUL-terminated ISO-8859-1 string, meaning that each unsigned
 byte stands for the Unicode code point of the same number.  This
 routine takes the address of the string itself (the byte after the
 0xe0) as its argument, as well as an explicit callback to which to
@@ -241,14 +255,34 @@ right?
               pieces = []
           tree_node = huffman_root
 
-Now I think we have all the ingredients we'll need to finally do the
-thing!  We're going to loop through every possible u32 in the code area
-and try to guess whether it's a pointer to a string.  If it is, we decode
-the string.  This ends up emitting strings in the order in which they
-appear in the code, which turns out to be a good thing, I think -- I
-have seen at least one game in which the strings themselves were alphabetized,
-which is not nearly as interesting an order in terms of presenting related
-strings together.
+Hmm, I think that assertion I stuck in there is only guaranteed to
+hold if we first ensure that the Huffman table is non-trivial.  But
+actually there are lots of ways the whole thing could blow up if
+we get a valid-looking Glulx file that happens to have an invalid
+Huffman table.  I'm not going to stress about that too much right
+now -- ultimately I doubt the caller's going to care all that much
+about the subtle distinction between returning and raising an
+exception.  For the record, any exception thrown (array index out
+of bounds, or the like) means that the file looked valid at first
+but is actually corrupt!  Or that my code is buggy, of course, but
+I mean that goes without saying.
+
+Oh, but I should probably at least pull in the `assert` module
+before trying to use it, right?  Damn.  Well, it's not too late,
+we haven't called `decode_huffman` yet, so I'll just do it now:
+
+      assert = require 'assert'
+
+Wish I'd thought of that earlier.  Ah well.
+
+Now I think we have all the ingredients we'll need to finally do
+the thing!  We're going to loop through every possible u32 in the
+code area and try to guess whether it's a pointer to a string.  If
+it is, we decode the string.  This ends up emitting strings in the
+order in which they appear in the code, which turns out to be a
+good thing, I think -- I have seen at least one game in which the
+strings themselves were alphabetized, which is not nearly as
+interesting an order in terms of presenting related strings together.
 
 It would be easy to deduplicate strings -- we could refuse to decode
 the same address twice, or we could do the decoding but deduplicate
@@ -304,7 +338,7 @@ it'll only take a few lines of code, so maybe I can sneak it in
 here at the end.  Might remove it later, or not.  You would run
 this with `coffee -l`, I suppose.  Hmm, so, how do we check whether
 we're being invoked directly as a node.js script, as opposed to
-being required by someone else's script?  Right:
+being `require`d by someone else's script?  Right:
 
     if module? and module is require?.main
       fs = require 'fs'

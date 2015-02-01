@@ -3,11 +3,12 @@
   var bytes, fs;
 
   exports.extract_strings = function(bytes, cb) {
-    var code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
-    if (bytes.length < 36) {
+    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
+    header_size = 36;
+    if (bytes.length < header_size) {
       return;
     }
-    for (i = _i = 0, _ref = bytes.length - 36; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+    for (i = _i = 0, _ref = bytes.length - header_size; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
       if (bytes[i] === 71 && bytes[i + 1] === 108 && bytes[i + 2] === 117 && bytes[i + 3] === 108 && bytes[i + 4] === 0) {
         glulx_start = i;
         break;
@@ -27,10 +28,10 @@
     string_table_size = u32(string_table_start);
     string_table_end = string_table_start + string_table_size;
     huffman_root = u32(string_table_start + 8);
-    code_start = 36;
+    code_start = header_size;
     code_end = string_table_start;
     data_start = string_table_end;
-    data_end = Math.min(ram_start, bytes.length - glulx_start);
+    data_end = ram_start;
     decode_u8 = function(addr, cb) {
       var byte, chars;
       chars = [];
@@ -103,6 +104,7 @@
         tree_node = huffman_root;
       }
     };
+    assert = require('assert');
     for (code_addr = _j = code_start; code_start <= code_end ? _j < code_end : _j > code_end; code_addr = code_start <= code_end ? ++_j : --_j) {
       data_addr = u32(code_addr);
       if ((!data_start <= data_addr && data_addr < data_end)) {
