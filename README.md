@@ -52,8 +52,9 @@ around and decodes everything that looks like it might be possibly
 probably almost certainly a string of text, so it does less but it
 isn't as brittle.  And actually it turns out you can apply a few
 simple heuristics to greatly cut down on the amount of noise, if
-you even care, which you probably don't that much really.  Maybe
-I'll write more about all that later.
+you even care, which you probably don't that much really.  Though,
+if you do, by all means read on, because I'm going to talk about
+it in more detail below.
 
 For now, I've posted my initial Python implementation, but it
 occurred to me that it would be way better to do this in Javascript,
@@ -91,7 +92,7 @@ callback won't get invoked again later.  It's purely synchronous,
 really, but you might not have to wait as long before you start
 getting strings back.
 
-Let's call this function, uh, extract_strings.
+Let's call this function, uh, `extract_strings`.
 
     exports.extract_strings = (bytes, cb) ->
 
@@ -102,9 +103,9 @@ should say?  As opposed to a plain Glulx file, is what I mean.  So
 we first need to find the Glulx.  And so a `.gblorb` is some kind
 of IFF file and we could parse it and find the right chunk, or we
 could just say screw that and look for the Glulx header, and that
-way this'll work even if it's some other kind of file with a `.gblorb`
-and/or Glulx embedded in it, so long as it's not like compressed
-or encoded in some other fancy way.
+way this'll work even if it's just a plain Glulx file, or some other
+kind of file with a `.gblorb` and/or Glulx embedded in it, so long
+as it's not like compressed or encoded in some other fancy way.
 
 If you want, you can read the Glulx specification here:
 http://www.eblong.com/zarf/glulx/
@@ -113,10 +114,11 @@ The Glulx header is 36 bytes long and starts with the 4-byte sequence
 `Glul` (the "magic number") followed by a big-endian version number
 whose first byte is likely to be zero.  (If it isn't zero, the major
 version number is greater than 255.x.x -- latest is 3.x.x as I write
-this -- so we're probably screwed anyway).  I want to check for the
-zero byte in addition to the magic number so as to avoid being
-fooled by any stray text earlier in whatever file the user happened
-to hand us.
+this -- and major version bumps are likely to break things, so we're
+probably screwed anyway).  I want to check for the zero byte in
+addition to the magic number so as to avoid being fooled too easily
+by any stray text earlier in whatever file the user happened to
+hand us.
 
       header_size = 36
       if bytes.length < header_size then return
@@ -155,11 +157,11 @@ of the actual strings seem to live between the string decoding table
 and RAMSTART.  Now of course there's nothing preventing future
 versions of Inform or hypothetical other compilers from doing things
 differently, but there's also nothing preventing them from (say)
-using the setstringtbl opcode, or from obfuscating strings in some
-other way, and I'm far too lazy to design this program in such a
-way as to make it totally foolproof.  In fact, there is this famous
-result in computability theory that... whatever, let's not even go
-there, it doesn't matter.  Instead let's do this:
+using the `setstringtbl` opcode, or from obfuscating strings in
+some other way, and I'm far too lazy to design this program in such
+a way as to make it totally foolproof.  In fact, there is this
+famous result in computability theory that... whatever, let's not
+even go there, it doesn't matter.  Instead let's do this:
 
       ram_start = u32 8
       string_table_start = u32 28
@@ -198,9 +200,10 @@ want to try to extract as much as we can.
           chars.push String.fromCharCode byte
           addr += 1
 
-Next is unencoded Unicode strings, which I guess are big-endian UTF-32
-or whatever.  Same basic idea.  Maybe there's some clever way to combine
-these two routines but I'm just going to write it out:
+Next is unencoded Unicode strings, which I guess are big-endian
+UTF-32 or whatever.  Same basic idea.  Maybe there's some clever
+way to combine these two routines but I'm just going to write it
+out:
 
       decode_u32 = (addr, cb) ->
         chars = []
@@ -218,12 +221,13 @@ we read the string one bit at a time and use the result to decide
 which branch of a binary tree to go down, and the contents of the
 next binary tree node tell us what to do next.  I'm going to treat
 an unknown node type the same way I treat direct/indirect references:
-I'm going to treat them as a hole in the string, basically, meaning
-that I'm going to divide the string we're currently decoding into
-two halves at that point and attempt to emit both halves.  In
-practice this doesn't seem to matter at all; if the current Inform
-compiler uses such highfalutin' constructions, I haven't seen them
-in the wild.
+I'm going to treat each of those things as a hole in the string,
+basically, meaning that I'm going to divide the string we're currently
+decoding into two halves at that point and attempt to emit both
+halves.  In practice this doesn't seem to come up at all; if the
+current Inform compiler uses such highfalutin' constructions, I
+haven't seen them in the wild yet.  Though I haven't looked very
+hard.
 
 This routine could proably just use the enclosing routine's cb
 unconditionally, because we're not going to reuse decode_huffman
@@ -263,9 +267,9 @@ Huffman table.  I'm not going to stress about that too much right
 now -- ultimately I doubt the caller's going to care all that much
 about the subtle distinction between returning and raising an
 exception.  For the record, any exception thrown (array index out
-of bounds, or the like) means that the file looked valid at first
-but is actually corrupt!  Or that my code is buggy, of course, but
-I mean that goes without saying.
+of bounds, assertion failure, or the like) means that the file
+looked valid at first but is actually corrupt!  Or that my code is
+buggy, of course, but I mean that goes without saying.
 
 Oh, but I should probably at least pull in the `assert` module
 before trying to use it, right?  Damn.  Well, it's not too late,
@@ -283,32 +287,38 @@ order in which they appear in the code, which turns out to be a
 good thing, I think -- I have seen at least one game in which the
 strings themselves were alphabetized, which is not nearly as
 interesting an order in terms of presenting related strings together.
+Whereas going in code order tends to show strings that get used
+together as part of the same larger message in their proper order,
+and tends to group thematically related strings together.
 
 It would be easy to deduplicate strings -- we could refuse to decode
 the same address twice, or we could do the decoding but deduplicate
-the actual contents of the strings.  Again, I feel like this is a
-mistake, because the repeated strings often provide valuable clues
-about what the heck is going on.  Plus it's slightly easier not to do
-those things.  So, we don't.
+the actual contents of the strings.  Again, I feel like either kind
+of deduplication would be a mistake, because the repeated strings
+often provide valuable clues about what the heck is going on.  Plus
+it's slightly easier not to deduplicate.  So, we don't.
 
 To be safe, though, let's provide the callback with the address of
 each string, as well as the address of the code pointer that pointed
-to each string, as additional positional arguments.  Since this is
+to each string, as additional positional arguments, so the caller
+can deduplicate or reorder if they really want to.  Since this is
 Javascript, nobody will notice or care if we pass extra arguments
 that wind up going unused.  In the weird case where we split a
 string into pieces because it contained indirect placeholders, all
-of the pieces will have the same addresses, so the caller will have
-a clue about what's going on, in case someone cares.
+of the pieces will have the same code and data addresses, so the
+caller will have a clue about what's going on, in case someone
+cares.
 
-Of course, you'll notice that the routines above only invoke their
-callbacks with one argument.  So we'll need a wrapper or something.
-And actually this will provide an opportunity to take care of another
-niggling issue that's been bothering me: If you've been paying
-attention, you'll have noticed that the above routines can invoke
-their callbacks with an empty string in a number of corner cases.
-That doesn't really seem like a helpful or meaningful thing to do,
-so I'm just going to filter those out in the wrapper.  In practice
-I'm not sure if it matters either way, but whatever.
+Of course, you'll have noticed that the routines above only invoke
+their callbacks with one argument.  So we'll need a wrapper or
+something.  And actually this will provide an opportunity to take
+care of another niggling issue that's been bothering me: You will
+also have noticed that the above routines can invoke their callbacks
+with an empty string in a few corner cases.  That doesn't really
+ever seem like a helpful or meaningful thing to do, so I'm just
+going to filter those out in the wrapper.  In practice I'm not sure
+if it matters either way, since I bet those corner cases don't come
+up, but whatever.
 
       for code_addr in [code_start...code_end]
         data_addr = u32 code_addr
@@ -336,14 +346,16 @@ But for now I just want a node CLI that I can play with so I can
 see if this still works after translating it from the Python.  And
 it'll only take a few lines of code, so maybe I can sneak it in
 here at the end.  Might remove it later, or not.  You would run
-this with `coffee -l`, I suppose.  Hmm, so, how do we check whether
-we're being invoked directly as a node.js script, as opposed to
-being `require`d by someone else's script?  Right:
+this as `coffee -l README.md foo.gblorb`, I suppose.  Hmm, so, how
+do we check whether we're being invoked directly as a node.js script,
+as opposed to being `require`d by someone else's script?  Right:
 
     if module? and module is require?.main
       fs = require 'fs'
       bytes = fs.readFileSync process.argv[2]
       exports.extract_strings bytes, (s) -> console.log s
+
+Hmm, why isn't this working?  Damn it....
 
 ## License
 
