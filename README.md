@@ -56,23 +56,24 @@ you even care, which you probably don't that much really.  Though,
 if you do, by all means read on, because I'm going to talk about
 it in more detail below.
 
-For now, I've posted my initial Python implementation, but it
-occurred to me that it would be way better to do this in Javascript,
-because I am assuming that you are probably a human being and most
-human beings do not know off the top of their heads how to run a
-Python program and get it to do something useful, and those who do
-have some idea of what's involved often have better things to do
-with their time, whereas if this thing is Javascript it can live
-on a web page and you can just drag the file onto the page and it
-can show you the text, bam, done.
+My first few drafts of this idea were in Python (and you can still
+find a working version here, in glulx-strings.py), but it occurred
+to me that it would be way better to do this in Javascript, because
+I am assuming that you are probably a human being and most human
+beings do not know off the top of their heads how to run a Python
+program and get it to do something useful, and those who do have
+some idea of what's involved often have better things to do with
+their time, whereas if this thing is Javascript it can live on a
+web page and you can just drag the file onto the page and it can
+show you the text, bam, done.
 
 So I'm working on that.  Of course I'm not going to be writing any
 Javascript by hand, I mean that would be crazy.  I'll be using
 CoffeeScript instead: http://coffeescript.org/
 
-(Note that, as of this writing, the Python version works but the
-Javascript/CoffeeScript version doesn't.  At least, it doesn't seem
-to.)
+As of this writing, both the Python and the Javascript versions of
+the CLI-based extractor are working.  I still need to slap an HTML
+UI on the latter.
 
 ## Let's see here.
 
@@ -323,7 +324,7 @@ up, but whatever.
 
       for code_addr in [code_start...code_end]
         data_addr = u32 code_addr
-        if not data_start <= data_addr < data_end then continue
+        unless data_start <= data_addr < data_end then continue
         wrapped_cb = (s) -> if s then cb s, data_addr, code_addr
         switch u8 data_addr
           when 0xe0 then decode_u8 data_addr+1, wrapped_cb
@@ -354,9 +355,14 @@ as opposed to being `require`d by someone else's script?  Right:
     if module? and module is require?.main
       fs = require 'fs'
       bytes = fs.readFileSync process.argv[2]
-      exports.extract_strings bytes, (s) -> console.log s
+      exports.extract_strings bytes, (s) ->
+        s = s.trimRight()
+        if s then console.log s
 
-Hmm, why isn't this working?  Damn it....
+Hmm... the output doesn't seem to be completely identical to the
+Python version.  A few of the false positives in the test file I
+tried are missing.  I suppose if I were feeling ambitious I would
+track down the discrepancy and fix either that version or this one.
 
 ## License
 
