@@ -281,15 +281,16 @@ Wish I'd thought of that earlier.  Ah well.
 
 Now I think we have all the ingredients we'll need to finally do
 the thing!  We're going to loop through every possible u32 in the
-code area and try to guess whether it's a pointer to a string.  If
-it is, we decode the string.  This ends up emitting strings in the
-order in which they appear in the code, which turns out to be a
-good thing, I think -- I have seen at least one game in which the
-strings themselves were alphabetized, which is not nearly as
-interesting an order in terms of presenting related strings together.
-Whereas going in code order tends to show strings that get used
-together as part of the same larger message in their proper order,
-and tends to group thematically related strings together.
+code area and see whether it points to something that might be a
+string.  If so, we'll try to decode the string using the appropriate
+routine defined above.  This ends up emitting strings in the order
+in which they appear in the code, which turns out to be a good
+thing, I think -- I have seen at least one file in which the strings
+themselves were alphabetized, which is not nearly as interesting
+an order in terms of presenting related strings together.  Whereas
+going in code order tends to show strings that get used together
+as part of the same larger message in their proper order, and tends
+to group thematically related strings together.
 
 It would be easy to deduplicate strings -- we could refuse to decode
 the same address twice, or we could do the decoding but deduplicate
