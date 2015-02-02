@@ -96,9 +96,32 @@ right?
 Let me try with just plain inlining first, via `gulp-inline`, then
 see if I can get it to work with (say) `gulp-coffeeify`.
 
-      .pipe plugins.inline js: plugins.coffeeify()
-      .pipe gulp.dest '.'
+    #  .pipe plugins.inline base: '.', js: plugins.coffeeify()
+    #  .pipe gulp.dest '.'
 
 Nope, doesn't work.  I've tried with and without coffeeify.  What
 am I doing wrong?
 
+Maybe if I set base?
+
+Oh!  I bet I need to include the script file in the input stream!
+
+How the heck am I gonna do that?
+
+Let's go back to trying without coffeeify:
+
+      .pipe plugins.inline base: '.'
+      .pipe gulp.dest '.'
+
+All right, now we need to... uh... we need to inject something into
+the stream.  Something that isn't going to run through jade.  Hmm.
+
+No, I'm wrong.  Look at this example!  That's definitely not how
+this thing is supposed to work.
+
+Does it want a leading slash in the script's src attribute?  That seems
+bizarre, but I can try it....
+
+Not helping.  Maybe if I set the script's type attribute?
+
+Yes, that worked!!!!
