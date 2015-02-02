@@ -132,8 +132,55 @@ it.
 
 But will it coffeeify?
 
-      .pipe plugins.inline js: plugins.coffeeify()
-      .pipe gulp.dest '.'
+    #  .pipe plugins.inline js: plugins.coffeeify()
+    #  .pipe gulp.dest '.'
 
 Boy will it ever.  Good!
+
+Will it work if I switch to `.coffee.md`?
+
+Nope.  Not out of the box, anyway.  Presumably coffeeify has some
+way to let me specify compiler options?  Let me just go back and try
+the obvious thing....
+
+    #  .pipe plugins.inline js: plugins.coffeeify literate: yes
+    #  .pipe gulp.dest '.'
+
+nope.  OK, time to look at the source.
+
+Hmm, not sure it's going to let me pass options to the compiler.
+
+Yeah, the more I look at this the sketchier it seems.
+
+`gulp-browserify-thin` looks plausible but it's only a half-solution
+-- it makes it easier to hook the output of browserify into gulp,
+but it doesn't help you hook the output of gulp into browserify, if I
+am understanding this correctly.
+
+Aha, `gulp-browatchify` must be what I want.
+
+Wonder if I could even use browserify directly, if it came to that.
+Just pass the contents of the script tag to Jade as a named variable
+or something.  Seems a little ugly, though.
+
+OK, where was I?  Right, trying the new thing:
+
+    #  .pipe plugins.inline js: plugins.browatchify transforms: ['coffeeify']
+    #  .pipe gulp.dest '.'
+
+Huh!  This is... not... good.
+
+Back up, try it with plain .js:
+
+      .pipe plugins.inline js: plugins.browatchify()
+      .pipe gulp.dest '.'
+
+Fails with the same-looking crazy error message.  Golly.
+
+Okay, maybe browatchify is no good?
+
+Hmm, surely the browserify folks have an opinion on how to work with gulp?
+
+Indeed: https://github.com/gulpjs/gulp/blob/master/docs/recipes/fast-browserify-builds-with-watchify.md
+
 
