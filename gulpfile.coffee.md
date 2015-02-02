@@ -1,7 +1,7 @@
 Okay, so, I want to make an `.html` file.  How hard could it be?
 
-Supposedly `gulp` will find this file, extract the code from it,
-evaluate (run) it all via CoffeeScript then run whichever "task"
+Supposedly `gulp` will find this file, extract the code from it and
+evaluate (run) it all via CoffeeScript, then run whichever "task"
 it was asked to run.  Which sounds convenient, I guess.
 
 Oh hey, can I get this thing to compile the node module as well?  I bet I
@@ -40,3 +40,18 @@ than writing `coffee -cl README.md`, but I am okay with that, given
 my plans for the `.html` file.
 
 Let me just commit this....
+
+Okay, what is the next step here?  For the HTML thing?
+
+Let's start with an `index.jade`:
+
+      jade = require 'gulp-jade'
+      gulp.src 'index.jade'
+      .pipe jade()
+      .pipe gulp.dest '.'
+
+Let me just verify that this works... hmm, doesn't need me to install
+`jade` but does need `marked`... okay, there we go, that looks
+right.
+
+
