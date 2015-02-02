@@ -110,7 +110,7 @@ How the heck am I gonna do that?
 
 Let's go back to trying without coffeeify:
 
-      .pipe plugins.inline base: '.'
+      .pipe plugins.inline()
       .pipe gulp.dest '.'
 
 All right, now we need to... uh... we need to inject something into
@@ -125,3 +125,8 @@ bizarre, but I can try it....
 Not helping.  Maybe if I set the script's type attribute?
 
 Yes, that worked!!!!
+
+And I only needed to give it a base to counteract the weird leading
+slash, I think.  Yes, that kinda makes sense now that I think about
+it.
+
