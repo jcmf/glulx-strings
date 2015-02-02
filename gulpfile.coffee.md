@@ -8,7 +8,7 @@ Oh hey, can I get this thing to compile the node module as well?  I bet I
 can.  Let's start with that.
 
 Let's use the default task for now?  Maybe later if I have more
-than one I can name them after the corresponding npm package.json
+than one I can name them after the corresponding `package.json`
 hook.  Right now I just have a `prepublish` hook which I'm running
 via `npm install`, mostly to save me the trouble of having to worry
 about a global CoffeeScript install.
@@ -54,4 +54,12 @@ Let me just verify that this works... hmm, doesn't need me to install
 `jade` but does need `marked`... okay, there we go, that looks
 right.
 
+Can I use [Stylus](http://learnboost.github.io/stylus/) for my CSS?
+Does [Jade](http://jade-lang.com/) already know about Stylus?  I
+don't see a list of filters... oh but `lib/filters.js` looks like
+it'll work with anything that
+[`transformers`](https://www.npmjs.com/package/transformers) knows
+about, and `transformers` totally knows about Stylus!  So probably I
+can just do that right in `index.jade` and it'll all be cool?
 
+Yes, it works!  Needs me to install `stylus` first, not surprisingly.
