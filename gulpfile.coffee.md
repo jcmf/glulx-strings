@@ -46,8 +46,8 @@ Okay, what is the next step here?  For the HTML thing?
 
 Let's start with an `index.jade`:
 
-      gulp.src 'index.jade'
-      .pipe plugins.jade()
+    #  gulp.src 'index.jade'
+    #  .pipe plugins.jade()
 
 Let me just verify that this works... hmm, doesn't need me to install
 `jade` but does need `marked`... okay, there we go, that looks
@@ -172,8 +172,8 @@ Huh!  This is... not... good.
 
 Back up, try it with plain .js:
 
-      .pipe plugins.inline js: plugins.browatchify()
-      .pipe gulp.dest '.'
+    #  .pipe plugins.inline js: plugins.browatchify()
+    #  .pipe gulp.dest '.'
 
 Fails with the same-looking crazy error message.  Golly.
 
@@ -183,4 +183,26 @@ Hmm, surely the browserify folks have an opinion on how to work with gulp?
 
 Indeed: https://github.com/gulpjs/gulp/blob/master/docs/recipes/fast-browserify-builds-with-watchify.md
 
+Aha, turns out half the gulp recipes are about browserify.
 
+Okay.  What if... what if I... does Jade have a browserify thing
+that doesn't suck?  Because then I could just inline a little script
+that `require`s a `.coffee.md` module and then we're golden.
+
+No, I don't think it does.  I mean why would it?  Nobody likes logic
+in templates, right?
+
+So I think maybe just browserify first and then hand the output to jade in
+a var I guess.
+
+      gulp.src 'index.jade'
+      .pipe plugins.jade locals: script: 'console.log("hello & world");'
+      .pipe gulp.dest '.'
+
+I cannot for the life of me remember how you get Jade to include
+the contents of a variable in the template without escaping.  Why
+do the docs consist of an alphabetized list of vague topics that I
+have to click on to find out what they're actually going to talk
+about?  Which topic do I want?  Ugh.
+
+Ah, "code," of course.  !=.  Sure, okay.
