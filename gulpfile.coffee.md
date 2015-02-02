@@ -14,6 +14,8 @@ via `npm install`, mostly to save me the trouble of having to worry
 about a global CoffeeScript install.
 
     gulp = require 'gulp'
+    plugins = require('gulp-load-plugins')()
+
     gulp.task 'default', ->
 
 Okay.  How do we get gulp to compile CoffeeScript?  There must be an
@@ -26,9 +28,8 @@ Maybe this `gulp-coffee` thing?
 
 Oh hey yeah, the PDF cheat sheet totally mentions it.
 
-      coffee = require 'gulp-coffee'
       gulp.src 'README.md'
-      .pipe coffee literate: yes, header: yes
+      .pipe plugins.coffee literate: yes, header: yes
       .pipe gulp.dest '.'
 
 Gosh, is that even syntactically valid?  Let's find out....
@@ -45,9 +46,8 @@ Okay, what is the next step here?  For the HTML thing?
 
 Let's start with an `index.jade`:
 
-      jade = require 'gulp-jade'
       gulp.src 'index.jade'
-      .pipe jade()
+      .pipe plugins.jade()
       .pipe gulp.dest '.'
 
 Let me just verify that this works... hmm, doesn't need me to install
@@ -63,3 +63,35 @@ about, and `transformers` totally knows about Stylus!  So probably I
 can just do that right in `index.jade` and it'll all be cool?
 
 Yes, it works!  Needs me to install `stylus` first, not surprisingly.
+
+Now I need... hmm, this is the tricky part.  I want to inline a
+browserified script, probably coming from an external `.coffee.md`
+file, so I can exposit all over it.
+
+You know, I wonder if I could have a `.jade.md` file.  Like, I don't
+think Jade explicitly supports that, but with this gulp thing it
+seems like Jade doesn't even need to necessarily know about it.  It
+can be our little secret.  At which point I could just inline the
+code...  though the indentation level might be a bit high... no, I
+think it could work.  And it's not like we're going to need a ton
+of code in there, so restricting it to a single file might be
+reasonable.
+
+Oh but having the `:markdown` section inside the `.jade.md` file...
+gosh, I think my head might explode.
+
+Or not.  I mean, that's almost sort of a reasonable thing to do,
+isn't it?  I think it actually might be....
+
+So maybe I should first be trying for inline browserified CoffeeScript,
+and then see if I can `.jade.md`ify that.  Because I mean surely this is
+all very doable, and probably there are plugins already that do all of
+these things.
+
+Although... you know... I bet Jade's going to get awfully confused about
+source file names and line numbers.  That might get annoying quickly.
+
+Either way, though, inlined browserified CoffeeScript is a place to start,
+right?
+
+

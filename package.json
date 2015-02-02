@@ -21,6 +21,7 @@
     "gulp": "^3.8.10",
     "gulp-coffee": "^2.3.1",
     "gulp-jade": "^0.11.0",
+    "gulp-load-plugins": "^0.8.0",
     "marked": "^0.3.3",
     "stylus": "^0.49.3"
   }
