@@ -48,7 +48,6 @@ Let's start with an `index.jade`:
 
       gulp.src 'index.jade'
       .pipe plugins.jade()
-      .pipe gulp.dest '.'
 
 Let me just verify that this works... hmm, doesn't need me to install
 `jade` but does need `marked`... okay, there we go, that looks
@@ -94,4 +93,12 @@ source file names and line numbers.  That might get annoying quickly.
 Either way, though, inlined browserified CoffeeScript is a place to start,
 right?
 
+Let me try with just plain inlining first, via `gulp-inline`, then
+see if I can get it to work with (say) `gulp-coffeeify`.
+
+      .pipe plugins.inline js: plugins.coffeeify()
+      .pipe gulp.dest '.'
+
+Nope, doesn't work.  I've tried with and without coffeeify.  What
+am I doing wrong?
 
