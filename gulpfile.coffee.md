@@ -110,8 +110,8 @@ How the heck am I gonna do that?
 
 Let's go back to trying without coffeeify:
 
-      .pipe plugins.inline()
-      .pipe gulp.dest '.'
+    #  .pipe plugins.inline()
+    #  .pipe gulp.dest '.'
 
 All right, now we need to... uh... we need to inject something into
 the stream.  Something that isn't going to run through jade.  Hmm.
@@ -129,4 +129,11 @@ Yes, that worked!!!!
 And I only needed to give it a base to counteract the weird leading
 slash, I think.  Yes, that kinda makes sense now that I think about
 it.
+
+But will it coffeeify?
+
+      .pipe plugins.inline js: plugins.coffeeify()
+      .pipe gulp.dest '.'
+
+Boy will it ever.  Good!
 
