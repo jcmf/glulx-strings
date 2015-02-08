@@ -9,9 +9,31 @@ html(lang='en')
           margin 0 auto
     script
       :coffeescript
-        console.log 'this is a test'
-        glulx_strings = require './README.js'
+        {extract_strings} = require '.'
+        $ = require 'jquery'
+        $ ->
+          $strings = $ '#strings'
+          loadFiles = (files) ->
+            $strings.empty()
+            for file in files
+              reader = new FileReader()
+              reader.onloadend = ->
+                bytes = new Uint8Array reader.result
+                extract_strings bytes, (s) ->
+                  s = s.trimRight()
+                  if s then $strings.append document.createTextNode "#{s}\n"
+              reader.readAsArrayBuffer file
+          $input = $ '#input'
+          $input.on 'change', -> loadFiles $input.get(0).files
+          $body = $ 'body'
+          $body.on 'dragenter dragover', false
+          $body.on 'drop', (e) ->
+            e.stopPropagation()
+            e.preventDefault()
+            loadFiles e.dataTransfer.files
   body
+    pre#strings
+    input#input(type='file')
     :markdown
       # glulx-strings
 
