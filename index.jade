@@ -5,8 +5,22 @@ html(lang='en')
     style
       :stylus
         body
+          margin 0
+          color black
+          background-color white
+        #strings
+          margin 0.5em
+        .string
+          padding-left 2em
+          text-indent -2em
+        #ui
           max-width 30em
-          margin 0 auto
+          margin 0.5em auto
+        #input-div
+          padding 0.5em
+          border-top 1px solid black
+          border-bottom 1px solid black
+          background-color #ddd
     script
       :coffeescript
         {extract_strings} = require '.'
@@ -14,27 +28,36 @@ html(lang='en')
         $ ->
           $strings = $ '#strings'
           loadFiles = (files) ->
+            if not files then return
             $strings.empty()
             for file in files
               reader = new FileReader()
               reader.onloadend = ->
                 bytes = new Uint8Array reader.result
                 extract_strings bytes, (s) ->
-                  s = s.trimRight()
-                  if s then $strings.append document.createTextNode "#{s}\n"
+                  if not s = s.trimRight() then return
+                  $string = $ '<div class="string">'
+                  $string.text s
+                  $strings.append $string
               reader.readAsArrayBuffer file
+            return
           $input = $ '#input'
           $input.on 'change', -> loadFiles $input.get(0).files
           $body = $ 'body'
-          $body.on 'dragenter dragover', false
-          $body.on 'drop', (e) ->
-            e.stopPropagation()
-            e.preventDefault()
-            loadFiles e.dataTransfer.files
+          dragDropFiles = (e) ->
+            if files = e.originalEvent?.dataTransfer?.files
+              e.stopPropagation()
+              e.preventDefault()
+            return files
+          $body.on 'dragenter dragover', dragDropFiles
+          $body.on 'drop', (e) -> loadFiles dragDropFiles e
   body
-    pre#strings
-    input#input(type='file')
-    :markdown
-      # glulx-strings
+    #strings
+    #ui
+      #input-div
+        input#input(type='file')
+      #text
+        :markdown
+          # glulx-strings
 
-      This is some text that will appear on the page.
+          This is some text that will appear on the page.
