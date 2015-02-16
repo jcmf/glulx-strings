@@ -389,10 +389,21 @@ uses word addresses.  (We can worry about packed addresses later.)
       version = bytes[0]
       abbrev_byte_addr = u16_b 0x18
 
-Need to initialize the Unicode table here, as described in section
-3.8.7.  I'll worry about this later maybe.
+Initialize the Unicode table, as described in section 3.8.7.  The
+story file is supposed to be able to override the default table,
+but maybe I'll worry about that later.
 
-      unicode_table = []
+      unicode_table = [
+        0x0e4, 0x0f6, 0x0fc, 0x0c4, 0x0d6, 0x0dc, 0x0df, 0x0bb,
+        0x0ab, 0x0eb, 0x0ef, 0x0ff, 0x0cb, 0x0cf, 0x0e1, 0x0e9,
+        0x0ed, 0x0f3, 0x0fa, 0x0fd, 0x0c1, 0x0c9, 0x0cd, 0x0d3,
+        0x0da, 0x0dd, 0x0e0, 0x0e8, 0x0ec, 0x0f2, 0x0f9, 0x0c0,
+        0x0c8, 0x0cc, 0x0d2, 0x0d9, 0x0e2, 0x0ea, 0x0ee, 0x0f4,
+        0x0fb, 0x0c2, 0x0ca, 0x0ce, 0x0d4, 0x0db, 0x0e5, 0x0c5,
+        0x0f8, 0x0d8, 0x0e3, 0x0f1, 0x0f5, 0x0c3, 0x0d1, 0x0d5,
+        0x0e6, 0x0c6, 0x0e7, 0x0c7, 0x0fe, 0x0f0, 0x0de, 0x0d0,
+        0x0a3, 0x153, 0x152, 0x0a1, 0x0bf
+      ]
 
 Now we can make a routine that decodes a string at a given byte
 address and returns it, or returns null if we can somehow tell that
@@ -438,7 +449,7 @@ expanding abbreviations forever.
               tenbit = null
               if zscii >= 252 then return
               else if 155 <= zscii < 155+unicode_table.length
-                pieces.push unicode_table[zscii - 155]
+                pieces.push String.fromCharCode unicode_table[zscii - 155]
               else pieces.push switch zscii
                 when 11 then '  '
                 when 13 then '\n'
@@ -456,7 +467,7 @@ expanding abbreviations forever.
               else pieces.push piece
           if v >> 15 then return pieces.join ''
 
-Wow, this spec is bad.
+Wow, this spec is confusing.
 
 * What's with the abbreviation table address in the header being a
 byte address?  Is it allowed to be odd?
