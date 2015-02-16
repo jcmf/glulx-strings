@@ -24,24 +24,24 @@ reachable but are nonetheless in there so the game can try to emit
 helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
-[Now includes rudimentary support for unblorbed Z-code, such as a
-`.z5` or `.z8` file produced by Inform.]
+Version 2 (which you are looking at) also includes halfway decent
+support for unblorbed Z-code, such as a `.z5` or `.z8` file produced
+by Inform.
 
 [I feel like an example would be helpful.  Maybe I can come up with
 one later and stick it here.]
 
-You would think this would be super easy -- I mean normally when
-you have a computer program in some non-human-readable form and you
-want to see the text it contains, you can run something like the
-`strings` Unix command on it, which mostly just looks through the
-file for any sequence of 4 or more consecutive printable ASCII
-characters and shows you those, which is surprisingly effective.
-But for Glulx this tends not to work, because the text is usually
-compressed, using a Huffman encoding scheme.  I guess back in the
-Infocom days it was important to compress in order to be able to
-fit more game on a floppy disk, and I assume that the practice has
-persisted in Glulx because it makes it that much harder to cheat.
-[Erm.  Sorry about that.]
+You would think it would be super easy to do this without a special
+tool -- I mean normally when you have a computer program in some
+non-human-readable form and you want to see the text it contains,
+you can run something like the Unix `strings` command on it, which
+mostly just looks through the file for any sequence of 4 or more
+consecutive printable ASCII characters and shows you those.  But
+for Glulx (and Z-code) this tends not to work, because the text is
+usually compressed.  I guess back in the Infocom days it was important
+to compress in order to be able to fit more game on a floppy disk,
+and I assume that the practice has persisted in Glulx because it
+makes it that much harder to cheat.  [Erm.  Sorry about that.]
 
 Anyway!  I think the strategy used by this glulx-strings thing
 you're looking at is interesting -- normally you'd need a disassembler,
@@ -55,10 +55,14 @@ isn't as brittle.  And actually it turns out you can apply a few
 simple heuristics to greatly cut down on the amount of noise, if
 you even care, which you probably don't that much really.  Though,
 if you do, by all means read on, because I'm going to talk about
-it in more detail below.
+it in more detail below.  If you care about how the noise reduction
+heuristics work, I mean.  If all you care about is that there is
+less noise than there would have been otherwise, you don't need to
+read anything, it just works.  I mean it's not perfect, there's
+still some noise.
 
 My first few drafts of this idea were in Python (and you can still
-find a working version here, in glulx-strings.py), but it occurred
+find a working version here, in `glulx-strings.py`), but it occurred
 to me that it would be way better to do this in Javascript, because
 I am assuming that you are probably a human being and most human
 beings do not know off the top of their heads how to run a Python
@@ -68,15 +72,19 @@ their time, whereas if this thing is Javascript it can live on a
 web page and you can just drag the file onto the page and it can
 show you the text, bam, done.
 
-So I'm working on that.  Of course I'm not going to be writing any
-Javascript by hand, I mean that would be crazy.  I'll be using
-[CoffeeScript](http://coffeescript.org/) instead.
+And as of this writing, that actually seems to be working.
 
-As of this writing, both the Python and the Javascript versions of
-the CLI-based extractor are working.  I still need to slap an HTML
-UI on the latter.
+The source code for the core Javascript library is in this file,
+oddly enough.  I'm thinking that I should move it to a separate
+file, though, so I can show example output above in a code block
+without CoffeeScript trying to compile it.
 
-## Let's see here.
+The source for the HTML UI already lives over in `index.jade`, which
+is compiled with `gribbl`, which I created in order to do exactly
+that task for exactly this project, though I'm hoping to use it for
+other things too.
+
+## Source code
 
 So actually I think I can just write the code right in here, right?
 And then `coffee -cl` will extract the code bits and compile them
@@ -84,7 +92,7 @@ and it'll all be good.  Probably!
 
 Let us begin.
 
-### extract_glulx_strings
+### Glulx
 
 I want this to be a module exporting a function that takes, uh, a
 buffer-like thing, file contents, array of unsigned bytes, and...
@@ -179,10 +187,10 @@ even go there, it doesn't matter.  Instead let's do this:
       data_end = ram_start
 
 Okay!  Now let's make some string-decoding routines!  Section 1.6.1
-lists three kinds of strings: unencoded string, unencoded Unicode
+lists three kinds of strings: unencoded strings, unencoded Unicode
 strings, and compressed strings.  Now actually we probably only
 really care about compressed strings, as far as I can tell, but the
-other two are easy so what the hell.
+other two look easy so what the hell.
 
 Let's start with unencoded strings.  These start with 0xe0 followed
 by a NUL-terminated ISO-8859-1 string, meaning that each unsigned
@@ -280,10 +288,11 @@ we haven't called `decode_huffman` yet, so I'll just do it now:
 
       assert = require 'assert'
 
-Wish I'd thought of that earlier.  Ah well.
+Wish I'd thought of that earlier.  Ah well.  Maybe I can move it
+up later.  I'll have to clean up all this text, too.
 
 Now I think we have all the ingredients we'll need to finally do
-the thing!  We're going to loop through every possible u32 in the
+the thing!  We're going to loop through every possible `u32` in the
 code area and see whether it points to something that might be a
 string.  If so, we'll try to decode the string using the appropriate
 routine defined above.  This ends up emitting strings in the order
@@ -341,15 +350,18 @@ building up an array of all the accumulated callback return values
 and returning it.
 
 And that's our exported function!  If you're building some piece
-of software that needs to be able to extract strings from these
-types of files, you can stop here.
+of software that needs to be able to extract strings from Glulx,
+you can stop here.  [Though actually you probably want to use the
+`extract_strings` function I later added below, which has the same
+signature but works with both Glulx and Z-code.]
 
-### Z-machine
+### Z-code
 
-Gosh, now I kinda want to see if I can make this work for the
-Z-machine.  Let's have a look at the [Z-machine
+Gosh, now I kinda want to see if I can make this work for Z-code.
+Let's have a look at the [Z-machine
 specification](http://inform-fiction.org/zmachine/standards/z1point1/index.html)...
-wow, this looks terrible.
+wow, this looks intimidating.  Makes you appreciate Glulx more,
+doesn't it?
 
 First off, can I even identify a file with Z-code in it?  Section
 11 and Appendix B offer some clues, but this looks pretty thin.
@@ -357,12 +369,14 @@ First off, can I even identify a file with Z-code in it?  Section
 Golly, it looks like the `file` command on my Mac can identify these
 `.z8` files, no problem.  Let me see what it's doing... yeah, okay,
 it's ignoring the first 16 bytes and looking at the next four bytes.
-Or three out of four of them.  Certain bits thereof.  Gosh.  Okay.
+Or three out of four.  Certain bits thereof.  Gosh.  Okay.
 
 You know what, I'm going to further restrict this by the version
 number in the first byte.  Supposedly files older than version 3
-are pretty rare, and the strings are encoded in a different way,
-and I don't want to deal with that, surely?
+are quite rare, and the strings are encoded in a slightly different
+way, and I don't want to deal with that, surely?  Maybe I'll come
+back and add support for versions 1 and 2 later.  I guess it's not
+impossible that it'll happen.
 
     exports.is_zcode = (bytes) ->
       (bytes.length >= 0x40 and
@@ -370,17 +384,19 @@ and I don't want to deal with that, surely?
           (bytes[0x10] & 0xfe) is 0 and
           (bytes[0x12] & 0xf0) is (bytes[0x13] & 0xf0) is 0x30)
 
-Maybe later I can go back and make an is_glulx or something, but
-in the meantime this'll at least be enough to let us distinguish
-between the two.
+Maybe later I can also go back and export an `is_glulx` function,
+or something, but in the meantime this'll at least be enough to let
+us distinguish between the two.
 
-Okay, now let's see if we can extract some strings.  Check the
-header, and look up the version number and the location of the
-abbreviations table.
+Okay, now let's see if we can extract some strings.  First we check
+the header, and look up the version number and the location of the
+abbreviations table.  I should probably split out that `fail`
+function too.  Later.
 
-The Z-machine expresses most addresses in bytes, so I'm just going
-to define a u16 that uses byte addresse and use that everywhere.
-I won't bother to define a u8; we can just use bytes[addr] for that.
+The Z-machine expresses most addresses in bytes (though not all),
+so I'm just going to define a `u16` that takes a byte address and
+use that everywhere.  I won't bother to define a `u8`; we can just
+use `bytes[addr]` for that.
 
     exports.extract_zcode_strings = (bytes, cb) ->
       if not exports.is_zcode bytes then throw new Error 'not z-code v3+'
@@ -388,11 +404,14 @@ I won't bother to define a u8; we can just use bytes[addr] for that.
       version = bytes[0]
       abbrev_addr = u16 0x18
 
-There's a version-dependent notion of a "packed address" for a
-string.  The next routine turns a packed string address into a byte
-offset.  If we don't recognize the version, let's just always return
-an invalid address, so we'll just fail to decode any packed string
-addresses.
+Speaking of other address formats, there's a version-dependent
+notion of a "packed address" for a string.  The next routine turns
+a packed string address into a byte offset.  If we don't recognize
+the file version, let's just always return an invalid address, so
+we'd just quietly fail to decode any packed string addresses while
+retaining the ability to decode other kinds of strings.  I mean I'm
+kinda hoping that there will never need to be a version 9, because
+that's kinda what Glulx already is, but who knows, right?
 
       unpack_addr = switch version
         when 1, 2, 3 then (packed_addr) -> 2*packed_addr
@@ -416,7 +435,7 @@ Initialize the alphabet and Unicode tables.  The story file is
 supposed to be able to override these, but maybe I'll worry about
 that later.
 
-The `x` at the start of a2 is a placeholder for an escape sequence
+The `x` at the start of `a2` is a placeholder for an escape sequence
 that can't be overridden.  The newline following it is literal, but
 we aren't supposed to let story files override that one either.
 
@@ -437,7 +456,9 @@ we aren't supposed to let story files override that one either.
 
 Now we can make a routine that decodes a string at a given byte
 address and returns it, or returns null if we can somehow tell that
-there's no valid string starting at that address.
+there's no valid string starting at that address.  I guess I'll try
+to be a bit strict about it, because the clues for where to find
+strings seem a bit less reliable than they did for Glulx.
 
 You can read about the gory details in section 3 of the spec, but
 the basic idea here is that every string is always represented as
@@ -502,12 +523,17 @@ Wow, this spec is confusing.
 byte address?  Is it allowed to be odd?
 
 * It isn't clear to me what's supposed to happen if an abbrevation
-immediately follows a shift.
+immediately follows a shift.  Do we apply the shift to the first
+letter of the abbreviation?  Do we shift the first letter following
+the abbreviation?  Do we do neither of those things?  Is there some
+other even more frightening possibility I haven't even considered?
 
 * The format of the abbreviation table is unclear -- what's with
 "abbreviation strings" vs "abbreviation table" in the example memory
 map at the end of section 1?  Maybe there's supposed to be a table
-length in there?  If so, is this described somewhere?  Where?
+length in there or something, rather than just lauching straight
+in to the list of pointers?  If so, is this described somewhere?
+Where?
 
 Okay, so!  How do we find strings?  The more I think about this,
 the more it seems like we're going to have to look for byte patterns
@@ -524,6 +550,20 @@ scan the entire address space?
           cb s, data_addr, code_addr
       return
 
+That actually seems to be doing something plausible!  I mean I
+haven't looked very carefully.  Maybe only one or two of the above
+opcodes is working right, and the rest are broken.  Or maybe there's
+some other thing entirely that I should be doing in order to get
+better coverage, like trying to walk the object table up front, or
+looking for other places that might point to strings in trickier
+ways, or something.
+
+Like, looking at Endless, Nameless, highlighted words often seem
+to be missing, at least in context.  Maybe because they're subroutines?
+I'm almost tempted to try to detect and inline those somehow.  But
+that way lies madness, surely -- the whole point of this exercise
+was to avoid writing a full disassembler....
+
 ### extract_strings
 
 And finally, a function that extracts strings from either type of file.
@@ -531,6 +571,9 @@ And finally, a function that extracts strings from either type of file.
     exports.extract_strings = (bytes, cb) ->
       if exports.is_zcode bytes then exports.extract_zcode_strings bytes, cb
       else exports.extract_glulx_strings bytes, cb
+
+To be polite, I've exported the other functions too, but that's the
+one you probably want.
 
 ### CLI
 
@@ -541,16 +584,19 @@ this still works after translating it from the Python.  Might remove
 it later, or not.  You could run this as `coffee -l README.md
 foo.gblorb`, I suppose, or as `node README.js foo.gblorb`.
 
+I should probably move this to its own file, though.
+
 Hmm, so, how do we check whether we're being invoked directly as a
 node.js script, as opposed to being `require`d by someone else's
 script?  Right:
 
-    if module? and module is require?.main
+    if module is require.main
       fs = require 'fs'
-      bytes = fs.readFileSync process.argv[2]
-      exports.extract_strings bytes, (s) ->
-        s = s.trimRight()
-        if s then console.log s
+      for file in process.argv[2..]
+        bytes = fs.readFileSync file
+        exports.extract_strings bytes, (s) ->
+          s = s.trimRight()
+          if s then console.log s
 
 I'm applying `trimRight` because leading whitespace can sometimes
 be interesting, but trailing whitespace is hard to even see, except
@@ -569,14 +615,14 @@ Python version.  A few of the false positives in the test file I
 tried are missing.  I suppose if I were feeling ambitious I would
 track down the discrepancy and fix either that version or this one.
 
-For a large-ish game (Hadean Lands), it looks like the Javascript
-version runs in less than 10% of the time the Python takes, even
-though the Python version is leaning more heavily on C modules
-(`struct` and `re`) to try to help speed up things that the Javascript
-version is just doing by itself.  Javascript (and node in particular)
-tends to be much faster for this kind of compute-heavy stuff, because
-so many resources get poured into improving the JIT, because web
-browsers.
+For a large-ish Glulx game (Hadean Lands), it looks like the
+Javascript version runs in less than 10% of the time the Python
+takes, even though the Python version is leaning more heavily on C
+modules (`struct` and `re`) to try to help speed up things that the
+Javascript version is just doing by itself.  Javascript (and node
+in particular) tends to be much faster for this kind of compute-heavy
+stuff, because so many resources get poured into improving the JIT,
+because web browsers.
 
 ## License
 
