@@ -9,13 +9,20 @@ html(lang='en')
           color black
           background-color white
         #strings
-          margin 0.5em
+          margin 0
+          font-family Consolas, Monaco, "Lucida Console", monospace
         .string
-          padding-left 2em
-          text-indent -2em
+          white-space pre-wrap
+          padding 0.2em 0.5em
+          border-bottom 1px dotted #eee
+          &:hover
+            background-color #eee
         #ui
           max-width 30em
           margin 0.5em auto
+          font-family sans-serif
+          & p
+            line-height 1.2
         #input-div, .status
           margin 0
           padding 0.5em
@@ -32,6 +39,7 @@ html(lang='en')
         {extract_strings} = require '.'
         $ = require 'jquery'
         $ ->
+          $('a').attr 'target', '_blank'
           $loading = $ '#loading'
           $failed = $ '#failed'
           $strings = $ '#strings'
@@ -49,10 +57,6 @@ html(lang='en')
                   if not s = s.trimRight() then return
                   $string = $ '<div class="string">'
                   $string.text s
-                  title = []
-                  if data_addr then title.push "data:0x#{data_addr.toString 16}"
-                  if code_addr then title.push "code:0x#{code_addr.toString 16}"
-                  if title.length then $string.attr 'title', title.join '; '
                   $strings.append $string
                   found = true
                 if not found then $failed.show()
@@ -82,20 +86,20 @@ html(lang='en')
         :markdown
           # glulx-strings
 
-          This program extracts text from Glulz or Z-code files,
+          This program extracts text from Glulx or Z-code files,
           such as interactive fiction or text adventure games created
           by the Inform compiler.
 
-          To use it, drag a `.gblorb`, `.z8`, `.zip`, or other story
-          file from your computer onto these words, or click the
-          button above to open a file chooser.  If it works, text
-          will appear.  Note that the results are not perfect: some
-          meaningless strings of letters will certainly also appear,
-          and some in-game text might not appear.
+          To use it, drag a `.gblorb`, `.z5`, `.z8`, `.zip`, or
+          other story file from your computer onto these words, or
+          click the button above to open a file chooser.  Note that
+          the results will not be perfect: some meaningless strings
+          of letters may also appear, and some in-game text might
+          not appear.
 
           This program does not use or require a network connection.
-          You can save it to disk as a `.html` file to make it
-          easier to use offline.
+          Ask your browser to save this page as an `.html` file to
+          make it easier to use offline.
 
           For more information about what this is for and how it
           works, see the [GitHub

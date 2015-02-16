@@ -4,15 +4,24 @@
   background-color: #fff;
 }
 #strings {
-  margin: 0.5em;
+  margin: 0;
+  font-family: Consolas, Monaco, "Lucida Console", monospace;
 }
 .string {
-  padding-left: 2em;
-  text-indent: -2em;
+  white-space: pre-wrap;
+  padding: 0.2em 0.5em;
+  border-bottom: 1px dotted #eee;
+}
+.string:hover {
+  background-color: #eee;
 }
 #ui {
   max-width: 30em;
   margin: 0.5em auto;
+  font-family: sans-serif;
+}
+#ui p {
+  line-height: 1.2;
 }
 #input-div,
 .status {
@@ -353,6 +362,7 @@
 
   $(function() {
     var $body, $failed, $input, $loading, $strings, dragDropFiles, loadFiles;
+    $('a').attr('target', '_blank');
     $loading = $('#loading');
     $failed = $('#failed');
     $strings = $('#strings');
@@ -372,22 +382,12 @@
           bytes = new Uint8Array(reader.result);
           found = false;
           extract_strings(bytes, function(s, data_addr, code_addr) {
-            var $string, title;
+            var $string;
             if (!(s = s.trimRight())) {
               return;
             }
             $string = $('<div class="string">');
             $string.text(s);
-            title = [];
-            if (data_addr) {
-              title.push("data:0x" + (data_addr.toString(16)));
-            }
-            if (code_addr) {
-              title.push("code:0x" + (code_addr.toString(16)));
-            }
-            if (title.length) {
-              $string.attr('title', title.join('; '));
-            }
             $strings.append($string);
             return found = true;
           });
@@ -12636,18 +12636,18 @@ var decodeDateTime = function (date, time) {
 }).call(this,require('_process'))
 },{"./inflate":12,"_process":6,"bops":13,"fs":3}]},{},[2]);
 </script></head><body><div id="strings"></div><div id="ui"><div id="input-div"><input id="input" type="file"></div><div id="loading" style="display: none" class="status">Working....</div><div id="failed" style="display: none" class="status">Sorry, I don&apos;t understand how to read this file.</div><div id="text"><h1 id="glulx-strings">glulx-strings</h1>
-<p>This program extracts text from Glulz or Z-code files,
+<p>This program extracts text from Glulx or Z-code files,
 such as interactive fiction or text adventure games created
 by the Inform compiler.</p>
-<p>To use it, drag a <code>.gblorb</code>, <code>.z8</code>, <code>.zip</code>, or other story
-file from your computer onto these words, or click the
-button above to open a file chooser.  If it works, text
-will appear.  Note that the results are not perfect: some
-meaningless strings of letters will certainly also appear,
-and some in-game text might not appear.</p>
+<p>To use it, drag a <code>.gblorb</code>, <code>.z5</code>, <code>.z8</code>, <code>.zip</code>, or
+other story file from your computer onto these words, or
+click the button above to open a file chooser.  Note that
+the results will not be perfect: some meaningless strings
+of letters may also appear, and some in-game text might
+not appear.</p>
 <p>This program does not use or require a network connection.
-You can save it to disk as a <code>.html</code> file to make it
-easier to use offline.</p>
+Ask your browser to save this page as an <code>.html</code> file to
+make it easier to use offline.</p>
 <p>For more information about what this is for and how it
 works, see the <a href="https://github.com/jcmf/glulx-strings">GitHub
 repository</a>.</p>
