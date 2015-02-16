@@ -14,11 +14,21 @@
   max-width: 30em;
   margin: 0.5em auto;
 }
-#input-div {
+#input-div,
+.status {
+  margin: 0;
   padding: 0.5em;
-  border-top: 1px solid #000;
   border-bottom: 1px solid #000;
+}
+#input-div {
+  border-top: 1px solid #000;
   background-color: #ddd;
+}
+#loading {
+  background-color: #cfc;
+}
+#failed {
+  background-color: #fcc;
 }
 </style><script>(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (process){
@@ -342,21 +352,26 @@
   $ = require('jquery');
 
   $(function() {
-    var $body, $input, $strings, dragDropFiles, loadFiles;
+    var $body, $failed, $input, $loading, $strings, dragDropFiles, loadFiles;
+    $loading = $('#loading');
+    $failed = $('#failed');
     $strings = $('#strings');
     loadFiles = function(files) {
       var file, reader, _i, _len;
       if (!files) {
         return;
       }
+      $loading.show();
+      $failed.hide();
       $strings.empty();
       for (_i = 0, _len = files.length; _i < _len; _i++) {
         file = files[_i];
         reader = new FileReader();
         reader.onloadend = function() {
-          var bytes;
+          var bytes, found;
           bytes = new Uint8Array(reader.result);
-          return extract_strings(bytes, function(s, data_addr, code_addr) {
+          found = false;
+          extract_strings(bytes, function(s, data_addr, code_addr) {
             var $string, title;
             if (!(s = s.trimRight())) {
               return;
@@ -373,8 +388,13 @@
             if (title.length) {
               $string.attr('title', title.join('; '));
             }
-            return $strings.append($string);
+            $strings.append($string);
+            return found = true;
           });
+          if (!found) {
+            $failed.show();
+          }
+          return $loading.hide();
         };
         reader.readAsArrayBuffer(file);
       }
@@ -12615,7 +12635,7 @@ var decodeDateTime = function (date, time) {
 
 }).call(this,require('_process'))
 },{"./inflate":12,"_process":6,"bops":13,"fs":3}]},{},[2]);
-</script></head><body><div id="strings"></div><div id="ui"><div id="input-div"><input id="input" type="file"></div><div id="text"><h1 id="glulx-strings">glulx-strings</h1>
+</script></head><body><div id="strings"></div><div id="ui"><div id="input-div"><input id="input" type="file"></div><div id="loading" style="display: none" class="status">Working....</div><div id="failed" style="display: none" class="status">Sorry, I don&apos;t understand how to read this file.</div><div id="text"><h1 id="glulx-strings">glulx-strings</h1>
 <p>This program extracts text from Glulz or Z-code files,
 such as interactive fiction or text adventure games created
 by the Inform compiler.</p>

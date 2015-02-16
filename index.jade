@@ -16,24 +16,35 @@ html(lang='en')
         #ui
           max-width 30em
           margin 0.5em auto
-        #input-div
+        #input-div, .status
+          margin 0
           padding 0.5em
-          border-top 1px solid black
           border-bottom 1px solid black
+        #input-div
+          border-top 1px solid black
           background-color #ddd
+        #loading
+          background-color #cfc
+        #failed
+          background-color #fcc
     script
       :coffeescript
         {extract_strings} = require '.'
         $ = require 'jquery'
         $ ->
+          $loading = $ '#loading'
+          $failed = $ '#failed'
           $strings = $ '#strings'
           loadFiles = (files) ->
             if not files then return
+            $loading.show()
+            $failed.hide()
             $strings.empty()
             for file in files
               reader = new FileReader()
               reader.onloadend = ->
                 bytes = new Uint8Array reader.result
+                found = false
                 extract_strings bytes, (s, data_addr, code_addr) ->
                   if not s = s.trimRight() then return
                   $string = $ '<div class="string">'
@@ -43,6 +54,9 @@ html(lang='en')
                   if code_addr then title.push "code:0x#{code_addr.toString 16}"
                   if title.length then $string.attr 'title', title.join '; '
                   $strings.append $string
+                  found = true
+                if not found then $failed.show()
+                $loading.hide()
               reader.readAsArrayBuffer file
             return
           $input = $ '#input'
@@ -60,6 +74,10 @@ html(lang='en')
     #ui
       #input-div
         input#input(type='file')
+      #loading.status(style='display: none').
+        Working....
+      #failed.status(style='display: none').
+        Sorry, I don't understand how to read this file.
       #text
         :markdown
           # glulx-strings
