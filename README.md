@@ -17,13 +17,15 @@ everywhere for a walkthrough or a forum thread, anything, nope,
 crickets.
 
 Anyway this thing takes the contents of a `.gblorb` file (containing
-a Glulx game -- doesn't support Z-machine, sorry) and extracts the
-text.  Typically this includes all of the text visible in the game.
-It may also include various internal identifiers that might or might
-not actually be theoretically reachable but are nonetheless in there
-so the game can try to emit helpful diagnostics in case it finds
-itself in an unexpected situation and does not know how else to
-proceed.
+a Glulx game) and extracts the text.  Typically this includes all
+of the text visible in the game.  It may also include various
+internal identifiers that might or might not actually be theoretically
+reachable but are nonetheless in there so the game can try to emit
+helpful diagnostics in case it finds itself in an unexpected situation
+and does not know how else to proceed.
+
+[Now includes rudimentary support for unblorbed Z-code, versions 3
+through 8, e.g. a `.z8` file.]
 
 [I feel like an example would be helpful.  Maybe I can come up with
 one later and stick it here.]
@@ -34,13 +36,12 @@ want to see the text it contains, you can run something like the
 `strings` Unix command on it, which mostly just looks through the
 file for any sequence of 4 or more consecutive printable ASCII
 characters and shows you those, which is surprisingly effective.
-But for Glulx (and Z-code) this tends not to work, because the text
-is usually compressed, using a Huffman encoding scheme.  I guess
-back in the Infocom days it was important to do this in order to
-be able to fit more game on a floppy disk, and I assume that the
-practice has persisted because there was no compelling reason to
-stop doing it and also because it makes it that much harder to
-cheat.  [Erm.  Sorry about that.]
+But for Glulx this tends not to work, because the text is usually
+compressed, using a Huffman encoding scheme.  I guess back in the
+Infocom days it was important to compress in order to be able to
+fit more game on a floppy disk, and I assume that the practice has
+persisted in Glulx because it makes it that much harder to cheat.
+[Erm.  Sorry about that.]
 
 Anyway!  I think the strategy used by this glulx-strings thing
 you're looking at is interesting -- normally you'd need a disassembler,
@@ -83,6 +84,8 @@ and it'll all be good.  Probably!
 
 Let us begin.
 
+### extract_glulx_strings
+
 I want this to be a module exporting a function that takes, uh, a
 buffer-like thing, file contents, array of unsigned bytes, and...
 let's make it asynchronous, so it repeatedly invokes a callback
@@ -93,9 +96,9 @@ callback won't get invoked again later.  It's purely synchronous,
 really, but you might not have to wait as long before you start
 getting strings back.
 
-Let's call this function, uh, `extract_strings`.
+Let's call this function, uh, `extract_glulx_strings`.
 
-    exports.extract_strings = (bytes, cb) ->
+    exports.extract_glulx_strings = (bytes, cb) ->
 
 Okay, so, first thing we need to do is... I'm assuming most people
 are going to want to pass in a `.gblorb`, because most games come
@@ -341,19 +344,162 @@ And that's our exported function!  If you're building some piece
 of software that needs to be able to extract strings from these
 types of files, you can stop here.
 
-I want to slap a web UI on top of this at some point, but I'm not
-sure whether to put that in this repository or a different one.
-Well, no, I can probably sneak it in here, can't I?  Maybe in a
-different file, that doesn't necessarily have to go in the npm
-module.
+### Z-machine
 
-But for now I just want a node CLI that I can play with so I can
-see if this still works after translating it from the Python.  And
-it'll only take a few lines of code, so maybe I can sneak it in
-here at the end.  Might remove it later, or not.  You would run
-this as `coffee -l README.md foo.gblorb`, I suppose.  Hmm, so, how
-do we check whether we're being invoked directly as a node.js script,
-as opposed to being `require`d by someone else's script?  Right:
+Gosh, now I kinda want to see if I can make this work for the
+Z-machine.  Let's have a look at the [Z-machine
+specification](http://inform-fiction.org/zmachine/standards/z1point1/index.html)...
+wow, this looks terrible.
+
+First off, can I even identify a file with Z-code in it?  Section
+11 and Appendix B offer some clues, but this looks pretty thin.
+
+Golly, it looks like the `file` command on my Mac can identify these
+`.z8` files, no problem.  Let me see what it's doing... yeah, okay,
+it's ignoring the first 16 bytes and looking at the next four bytes.
+Or three out of four of them.  Certain bits thereof.  Gosh.  Okay.
+
+You know what, I'm going to further restrict this by the version
+number in the first byte.  Supposedly files older than version 3
+are pretty rare, and the strings are encoded in a different way,
+and I don't want to deal with that, surely?
+
+    exports.is_zcode = (bytes) ->
+      (bytes.length >= 0x40 and
+          bytes[0] >= 3 and
+          (bytes[0x10] & 0xfe) is 0 and
+          (bytes[0x12] & 0xf0) is (bytes[0x13] & 0xf0) is 0x30)
+
+Maybe later I can go back and make an is_glulx or something, but
+in the meantime this'll at least be enough to let us distinguish
+between the two.
+
+Okay, now let's see if we can extract some strings.  Check the
+header, and look up the version number and the location of the
+abbreviations table.
+
+The Z-machine doesn't always measure addresses in bytes, so I'm
+going to define a u16_b that uses byte addresses and a u16_w that
+uses word addresses.  (We can worry about packed addresses later.)
+
+    exports.extract_zcode_strings = (bytes, cb) ->
+      if not exports.is_zcode bytes then throw new Error 'not z-code v3+'
+      u16_b = (byte_addr) -> bytes[byte_addr]<<8 | bytes[byte_addr+1]
+      u16_w = (word_addr) -> u16_b 2*word_addr
+      version = bytes[0]
+      abbrev_byte_addr = u16_b 0x18
+
+Need to initialize the Unicode table here, as described in section
+3.8.7.  I'll worry about this later maybe.
+
+      unicode_table = []
+
+Now we can make a routine that decodes a string at a given byte
+address and returns it, or returns null if we can somehow tell that
+there's no valid string starting at that address.
+
+You can read about the gory details in section 3 of the spec, but
+the basic idea here, if I'm understanding correctly, is that every
+string is always represented as a sequence of aligned 16-bit words.
+Each such word contains three 5-bit values representing characters
+and/or fancy escape sequences, plus one bit indicating end-of-string.
+Some of the codes are "shifts" affecting how the next code is
+interpreted (e.g. uppercase), that are also used to harmlessly pad
+out the end of a string whose length isn't a multiple of three or
+whatever.  There are also ways to refer to the "Unicode table" and
+the "abbrevation table" mentioned above.
+
+The `no_abbrev` flag is there to help us avoid accidentally recursively
+expanding abbreviations forever.
+
+      str_w = (word_addr, no_abbrev) ->
+        a0 = 'abcdefghijklmnopqrstuvwxyz'
+        a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        a2 = '''\x00\n0123456789.,!?_#'"/\-:()'''
+        a = a0
+        abbrev = tenbit = null
+        pieces = []
+        loop
+          if 2*word_addr + 1 >= bytes.length then return
+          v = u16_w word_addr
+          word_addr += 1
+          for shift in [10, 5, 0]
+            z = (v >> shift) & 0x1f
+            if abbrev
+              a = u16_b abbrev_byte_addr + 2*(32*(abbrev-1) + z)
+              piece = str_w a, true
+              abbrev = null
+              if not piece then return
+              pieces.push piece
+            else if tenbit
+              tenbit.push z
+              if tenbit.length < 2 then continue
+              zscii = tenbit[0]<<5 | tenbit[1]
+              tenbit = null
+              if zscii >= 252 then return
+              else if 155 <= zscii < 155+unicode_table.length
+                pieces.push unicode_table[zscii - 155]
+              else pieces.push switch zscii
+                when 11 then '  '
+                when 13 then '\n'
+                else String.fromCharCode zscii
+            else if z is 0 then pieces.push ' '
+            else if z in [1..3]
+              if no_abbrev then return
+              abbrev = z
+            else if z is 4 then a = a1
+            else if z is 5 then a = a2
+            else
+              piece = a[z-6]
+              a = a0
+              if piece is '\x00' then tenbit = []
+              else pieces.push piece
+          if v >> 15 then return pieces.join ''
+
+Wow, this spec is bad.
+
+* What's with the abbreviation table address in the header being a
+byte address?  Is it allowed to be odd?
+
+* It isn't clear to me what's supposed to happen if an abbrevation
+immediately follows a shift.
+
+* The format of the abbreviation table is unclear -- what's with
+"abbreviation strings" vs "abbreviation table" in the example memory
+map at the end of section 1?  Maybe there's supposed to be a table
+length in there?  If so, is this described somewhere?  Where?
+
+Moving right along.  Let's, uh... hmm.  We could extract strings
+starting at every possible address, I guess?  Including all possible
+overlaps?  No, if we're scanning the whole space, it only makes
+sense to get non-overlapping strings.  It would be nice if the above
+routine returned the address following the string, or something.
+But, whatever, I can just do this for now:
+
+      for a in [0x20..bytes.length//2]
+        if u16_w(a-1) >> 15 and s = str_w a then cb s, 2*a
+      return
+
+### extract_strings
+
+And finally, a function that extracts strings from either type of file.
+
+    exports.extract_strings = (bytes, cb) ->
+      if exports.is_zcode bytes then exports.extract_zcode_strings bytes, cb
+      else exports.extract_glulx_strings bytes, cb
+
+### CLI
+
+There is now a web UI in `index.html`, built from `index.jade`.
+
+This module also defines a node CLI that I was using to see see if
+this still works after translating it from the Python.  Might remove
+it later, or not.  You could run this as `coffee -l README.md
+foo.gblorb`, I suppose, or as `node README.js foo.gblorb`.
+
+Hmm, so, how do we check whether we're being invoked directly as a
+node.js script, as opposed to being `require`d by someone else's
+script?  Right:
 
     if module? and module is require?.main
       fs = require 'fs'
