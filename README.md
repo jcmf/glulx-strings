@@ -24,9 +24,11 @@ reachable but are nonetheless in there so the game can try to emit
 helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
-Version 2 (which you are looking at) also includes halfway decent
-support for unblorbed Z-code, such as a `.z5` or `.z8` file produced
-by Inform.
+Version 2 also includes halfway decent support for unblorbed Z-code,
+such as a `.z5` or `.z8` file produced by Inform.
+
+Version 3 (which you are looking at) adds support for `.zip` files
+containing either of the above.
 
 [I feel like an example would be helpful.  Maybe I can come up with
 one later and stick it here.]
@@ -132,15 +134,18 @@ addition to the magic number so as to avoid being fooled too easily
 by any stray text earlier in whatever file the user happened to
 hand us.
 
-      fail = (msg) -> throw new Error msg
       header_size = 36
-      if bytes.length < header_size then fail 'file is too short to be glulx'
+      if bytes.length < header_size then return
       for i in [0...bytes.length-header_size]
         if (bytes[i] == 71 and bytes[i+1] == 108 and bytes[i+2] == 117 and
             bytes[i+3] == 108 and bytes[i+4] == 0)
           glulx_start = i
           break
-      if not glulx_start? then fail 'not a glulx file'
+      if not glulx_start? then return
+
+Just to be clear, our error-handling strategy when faced with a
+file we don't understand is to not invoke the callback at all --
+just quietly fail to extract any strings.
 
 Okay, so at this point `bytes[glulx_start]` should be the first
 byte of the Glulx header and VM address space.  Pointer addresses
@@ -386,12 +391,12 @@ impossible that it'll happen.
 
 Maybe later I can also go back and export an `is_glulx` function,
 or something, but in the meantime this'll at least be enough to let
-us distinguish between the two.
+us distinguish between the two.  Though actually I'm not even sure
+we need to -- we can just try both....
 
 Okay, now let's see if we can extract some strings.  First we check
 the header, and look up the version number and the location of the
-abbreviations table.  I should probably split out that `fail`
-function too.  Later.
+abbreviations table.
 
 The Z-machine expresses most addresses in bytes (though not all),
 so I'm just going to define a `u16` that takes a byte address and
@@ -399,7 +404,7 @@ use that everywhere.  I won't bother to define a `u8`; we can just
 use `bytes[addr]` for that.
 
     exports.extract_zcode_strings = (bytes, cb) ->
-      if not exports.is_zcode bytes then throw new Error 'not z-code v3+'
+      if not exports.is_zcode bytes then return
       u16 = (addr) -> bytes[addr]<<8 | bytes[addr+1]
       version = bytes[0]
       abbrev_addr = u16 0x18
@@ -568,9 +573,15 @@ was to avoid writing a full disassembler....
 
 And finally, a function that extracts strings from either type of file.
 
+Actually why don't we make it work for `.zip` files too?  I think
+there's a library....
+
     exports.extract_strings = (bytes, cb) ->
-      if exports.is_zcode bytes then exports.extract_zcode_strings bytes, cb
-      else exports.extract_glulx_strings bytes, cb
+      exports.extract_glulx_strings bytes, cb
+      exports.extract_zcode_strings bytes, cb
+      if require('is-zip') bytes
+        require('zip').Reader(bytes).forEach (entry) ->
+          exports.extract_strings entry.getData(), cb
 
 To be polite, I've exported the other functions too, but that's the
 one you probably want.

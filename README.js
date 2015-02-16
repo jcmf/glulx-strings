@@ -4,13 +4,10 @@
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   exports.extract_glulx_strings = function(bytes, cb) {
-    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, fail, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
-    fail = function(msg) {
-      throw new Error(msg);
-    };
+    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _ref, _ref1, _ref2;
     header_size = 36;
     if (bytes.length < header_size) {
-      fail('file is too short to be glulx');
+      return;
     }
     for (i = _i = 0, _ref = bytes.length - header_size; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
       if (bytes[i] === 71 && bytes[i + 1] === 108 && bytes[i + 2] === 117 && bytes[i + 3] === 108 && bytes[i + 4] === 0) {
@@ -19,7 +16,7 @@
       }
     }
     if (glulx_start == null) {
-      fail('not a glulx file');
+      return;
     }
     u8 = function(addr) {
       return bytes[glulx_start + addr];
@@ -142,7 +139,7 @@
   exports.extract_zcode_strings = function(bytes, cb) {
     var a0, a1, a2, abbrev_addr, code_addr, data_addr, decode_string, objname_addr, s, u16, unicode_table, unpack_addr, version, _i, _ref;
     if (!exports.is_zcode(bytes)) {
-      throw new Error('not z-code v3+');
+      return;
     }
     u16 = function(addr) {
       return bytes[addr] << 8 | bytes[addr + 1];
@@ -285,10 +282,12 @@
   };
 
   exports.extract_strings = function(bytes, cb) {
-    if (exports.is_zcode(bytes)) {
-      return exports.extract_zcode_strings(bytes, cb);
-    } else {
-      return exports.extract_glulx_strings(bytes, cb);
+    exports.extract_glulx_strings(bytes, cb);
+    exports.extract_zcode_strings(bytes, cb);
+    if (require('is-zip')(bytes)) {
+      return require('zip').Reader(bytes).forEach(function(entry) {
+        return exports.extract_strings(entry.getData(), cb);
+      });
     }
   };
 
