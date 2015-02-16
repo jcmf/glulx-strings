@@ -140,7 +140,7 @@
   };
 
   exports.extract_zcode_strings = function(bytes, cb) {
-    var a0, a1, a2, abbrev_addr, code_addr, data_addr, decode_string, s, u16, unicode_table, unpack_addr, version, _i, _ref;
+    var a0, a1, a2, abbrev_addr, code_addr, data_addr, decode_string, objname_addr, s, u16, unicode_table, unpack_addr, version, _i, _ref;
     if (!exports.is_zcode(bytes)) {
       throw new Error('not z-code v3+');
     }
@@ -180,6 +180,14 @@
             return bytes.length;
           };
       }
+    })();
+    objname_addr = (function() {
+      var offset, stride, _ref;
+      _ref = version < 4 ? [2 * 31, 9] : [2 * 63, 14], offset = _ref[0], stride = _ref[1];
+      offset += stride - 2 + u16(0x0a);
+      return function(obj_num) {
+        return u16(obj_num * stride + offset);
+      };
     })();
     a0 = 'abcdefghijklmnopqrstuvwxyz';
     a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -259,6 +267,8 @@
         switch (bytes[code_addr]) {
           case 135:
             return u16(code_addr + 1);
+          case 138:
+            return objname_addr(u16(code_addr + 1));
           case 141:
             return unpack_addr(u16(code_addr + 1));
           case 178:

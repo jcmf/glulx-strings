@@ -403,6 +403,15 @@ addresses.
         when 8 then (packed_addr) -> 8*packed_addr
         else -> bytes.length
 
+The structure of the object table is similarly version-dependent.
+This is useful because there's an instruction that prints object
+names.
+
+      objname_addr = do ->
+        [offset, stride] = if version < 4 then [2*31, 9] else [2*63, 14]
+        offset += stride-2 + u16 0x0a
+        (obj_num) -> u16 obj_num*stride + offset
+
 Initialize the alphabet and Unicode tables.  The story file is
 supposed to be able to override these, but maybe I'll worry about
 that later.
@@ -504,16 +513,12 @@ scan the entire address space?
       for code_addr in [0...bytes.length]
         data_addr = switch bytes[code_addr]
           when 135 then u16 code_addr+1  # print_addr
+          when 138 then objname_addr u16 code_addr+1  # print_obj
           when 141 then unpack_addr u16 code_addr+1  # print_paddr
           when 178, 179 then code_addr+1  # print, print_ret
         if data_addr and s = decode_string data_addr
           cb s, data_addr, code_addr
       return
-
-Opcode 138 is `print_obj` -- can we do anything useful with that?
-Should I try to walk the object table instead?  Or maybe try to
-look for things that might be object headers, or things that might
-be pointers to object headers, or something?
 
 ### extract_strings
 
