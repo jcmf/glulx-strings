@@ -140,7 +140,7 @@
   };
 
   exports.extract_zcode_strings = function(bytes, cb) {
-    var a, a0, a1, a2, abbrev_addr, decodeString, s, u16, unicode_table, version, _i, _ref;
+    var a0, a1, a2, abbrev_addr, code_addr, data_addr, decode_string, s, u16, unicode_table, unpack_addr, version, _i, _ref;
     if (!exports.is_zcode(bytes)) {
       throw new Error('not z-code v3+');
     }
@@ -149,11 +149,43 @@
     };
     version = bytes[0];
     abbrev_addr = u16(0x18);
+    unpack_addr = (function() {
+      switch (version) {
+        case 1:
+        case 2:
+        case 3:
+          return function(packed_addr) {
+            return 2 * packed_addr;
+          };
+        case 4:
+        case 5:
+          return function(packed_addr) {
+            return 4 * packed_addr;
+          };
+        case 6:
+        case 7:
+          return (function() {
+            var S_O;
+            S_O = 8 * u16(0x2a);
+            return function(packed_addr) {
+              return 4 * packed_addr + S_O;
+            };
+          })();
+        case 8:
+          return function(packed_addr) {
+            return 8 * packed_addr;
+          };
+        default:
+          return function() {
+            return bytes.length;
+          };
+      }
+    })();
     a0 = 'abcdefghijklmnopqrstuvwxyz';
     a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     a2 = 'x\n0123456789.,!?_#\'"/\\-:()';
     unicode_table = [0x0e4, 0x0f6, 0x0fc, 0x0c4, 0x0d6, 0x0dc, 0x0df, 0x0bb, 0x0ab, 0x0eb, 0x0ef, 0x0ff, 0x0cb, 0x0cf, 0x0e1, 0x0e9, 0x0ed, 0x0f3, 0x0fa, 0x0fd, 0x0c1, 0x0c9, 0x0cd, 0x0d3, 0x0da, 0x0dd, 0x0e0, 0x0e8, 0x0ec, 0x0f2, 0x0f9, 0x0c0, 0x0c8, 0x0cc, 0x0d2, 0x0d9, 0x0e2, 0x0ea, 0x0ee, 0x0f4, 0x0fb, 0x0c2, 0x0ca, 0x0ce, 0x0d4, 0x0db, 0x0e5, 0x0c5, 0x0f8, 0x0d8, 0x0e3, 0x0f1, 0x0f5, 0x0c3, 0x0d1, 0x0d5, 0x0e6, 0x0c6, 0x0e7, 0x0c7, 0x0fe, 0x0f0, 0x0de, 0x0d0, 0x0a3, 0x153, 0x152, 0x0a1, 0x0bf];
-    decodeString = function(addr, no_abbrev) {
+    decode_string = function(addr, no_abbrev) {
       var a, abbrev, piece, pieces, shift, tenbit, v, z, zscii, _i, _len, _ref;
       a = a0;
       abbrev = tenbit = null;
@@ -170,7 +202,7 @@
           z = (v >> shift) & 0x1f;
           if (abbrev) {
             a = u16(abbrev_addr + 2 * (32 * (abbrev - 1) + z));
-            piece = decodeString(a, true);
+            piece = decode_string(a, true);
             abbrev = null;
             if (!piece) {
               return;
@@ -222,9 +254,20 @@
         }
       }
     };
-    for (a = _i = 0x20, _ref = Math.floor(bytes.length / 2); 0x20 <= _ref ? _i <= _ref : _i >= _ref; a = 0x20 <= _ref ? ++_i : --_i) {
-      if (u16(2 * (a - 1)) >> 15 && (s = decodeString(2 * a))) {
-        cb(s, 2 * a);
+    for (code_addr = _i = 0, _ref = bytes.length; 0 <= _ref ? _i < _ref : _i > _ref; code_addr = 0 <= _ref ? ++_i : --_i) {
+      data_addr = (function() {
+        switch (bytes[code_addr]) {
+          case 135:
+            return u16(code_addr + 1);
+          case 141:
+            return unpack_addr(u16(code_addr + 1));
+          case 178:
+          case 179:
+            return code_addr + 1;
+        }
+      })();
+      if (data_addr && (s = decode_string(data_addr))) {
+        cb(s, data_addr, code_addr);
       }
     }
   };

@@ -388,6 +388,21 @@ I won't bother to define a u8; we can just use bytes[addr] for that.
       version = bytes[0]
       abbrev_addr = u16 0x18
 
+There's a version-dependent notion of a "packed address" for a
+string.  The next routine turns a packed string address into a byte
+offset.  If we don't recognize the version, let's just always return
+an invalid address, so we'll just fail to decode any packed string
+addresses.
+
+      unpack_addr = switch version
+        when 1, 2, 3 then (packed_addr) -> 2*packed_addr
+        when 4, 5 then (packed_addr) -> 4*packed_addr
+        when 6, 7 then do ->
+          S_O = 8*u16 0x2a
+          (packed_addr) -> 4*packed_addr + S_O
+        when 8 then (packed_addr) -> 8*packed_addr
+        else -> bytes.length
+
 Initialize the alphabet and Unicode tables.  The story file is
 supposed to be able to override these, but maybe I'll worry about
 that later.
@@ -428,7 +443,7 @@ to the "Unicode table" and the "abbrevation table" mentioned above.
 The `no_abbrev` flag is there to help us avoid accidentally recursively
 expanding abbreviations forever.
 
-      decodeString = (addr, no_abbrev) ->
+      decode_string = (addr, no_abbrev) ->
         a = a0
         abbrev = tenbit = null
         pieces = []
@@ -440,7 +455,7 @@ expanding abbreviations forever.
             z = (v >> shift) & 0x1f
             if abbrev
               a = u16 abbrev_addr + 2*(32*(abbrev-1) + z)
-              piece = decodeString a, true
+              piece = decode_string a, true
               abbrev = null
               if not piece then return
               pieces.push piece
@@ -481,20 +496,24 @@ immediately follows a shift.
 map at the end of section 1?  Maybe there's supposed to be a table
 length in there?  If so, is this described somewhere?  Where?
 
-Moving right along.  Let's, uh... hmm.  We could extract strings
-starting at every possible address, I guess?  Including all possible
-overlaps?  No, if we're scanning the whole space, it only makes
-sense to get non-overlapping strings.  It would be nice if the above
-routine returned the address following the string, or something.
-But, whatever, I can just do this for now:
+Okay, so!  How do we find strings?  The more I think about this,
+the more it seems like we're going to have to look for byte patterns
+that could be instructions that print strings.  I guess we can just
+scan the entire address space?
 
-      for a in [0x20..bytes.length//2]
-        if u16(2*(a-1)) >> 15 and s = decodeString 2*a then cb s, 2*a
+      for code_addr in [0...bytes.length]
+        data_addr = switch bytes[code_addr]
+          when 135 then u16 code_addr+1  # print_addr
+          when 141 then unpack_addr u16 code_addr+1  # print_paddr
+          when 178, 179 then code_addr+1  # print, print_ret
+        if data_addr and s = decode_string data_addr
+          cb s, data_addr, code_addr
       return
 
-Actualy this isn't very good at all -- this code can only extract
-strings that start at even addresses, and now that I look more
-carefully at the spec, that isn't particularly likely.
+Opcode 138 is `print_obj` -- can we do anything useful with that?
+Should I try to walk the object table instead?  Or maybe try to
+look for things that might be object headers, or things that might
+be pointers to object headers, or something?
 
 ### extract_strings
 
