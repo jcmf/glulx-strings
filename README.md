@@ -389,10 +389,17 @@ uses word addresses.  (We can worry about packed addresses later.)
       version = bytes[0]
       abbrev_byte_addr = u16_b 0x18
 
-Initialize the Unicode table, as described in section 3.8.7.  The
-story file is supposed to be able to override the default table,
-but maybe I'll worry about that later.
+Initialize the alphabet and Unicode tables.  The story file is
+supposed to be able to override these, but maybe I'll worry about
+that later.
 
+The `x` at the start of a2 is a placeholder for an escape sequence
+that can't be overridden.  The newline following it is literal, but
+we aren't supposed to let story files override that one either.
+
+      a0 = 'abcdefghijklmnopqrstuvwxyz'
+      a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      a2 = 'x\n0123456789.,!?_#\'"/\\-:()'
       unicode_table = [
         0x0e4, 0x0f6, 0x0fc, 0x0c4, 0x0d6, 0x0dc, 0x0df, 0x0bb,
         0x0ab, 0x0eb, 0x0ef, 0x0ff, 0x0cb, 0x0cf, 0x0e1, 0x0e9,
@@ -424,9 +431,6 @@ The `no_abbrev` flag is there to help us avoid accidentally recursively
 expanding abbreviations forever.
 
       str_w = (word_addr, no_abbrev) ->
-        a0 = 'abcdefghijklmnopqrstuvwxyz'
-        a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        a2 = '''\x00\n0123456789.,!?_#'"/\-:()'''
         a = a0
         abbrev = tenbit = null
         pieces = []
@@ -460,11 +464,10 @@ expanding abbreviations forever.
               abbrev = z
             else if z is 4 then a = a1
             else if z is 5 then a = a2
+            else if z is 6 and a is a2 then tenbit = []
             else
-              piece = a[z-6]
+              pieces.push a[z-6]
               a = a0
-              if piece is '\x00' then tenbit = []
-              else pieces.push piece
           if v >> 15 then return pieces.join ''
 
 Wow, this spec is confusing.
