@@ -20,9 +20,6 @@
   margin: 0.5em auto;
   font-family: sans-serif;
 }
-#ui p {
-  line-height: 1.2;
-}
 #input-div,
 .status {
   margin: 0;
@@ -38,6 +35,17 @@
 }
 #failed {
   background-color: #fcc;
+}
+h1 {
+  margin-bottom: 0;
+}
+.version {
+  font-size: small;
+  font-style: italic;
+  margin-top: 0.5em;
+}
+p {
+  line-height: 1.2;
 }
 </style><script>(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (process){
@@ -12635,8 +12643,7 @@ var decodeDateTime = function (date, time) {
 
 }).call(this,require('_process'))
 },{"./inflate":12,"_process":6,"bops":13,"fs":3}]},{},[2]);
-</script></head><body><div id="strings"></div><div id="ui"><div id="input-div"><input id="input" type="file"></div><div id="loading" style="display: none" class="status">Working....</div><div id="failed" style="display: none" class="status">Sorry, I don&apos;t understand how to read this file.</div><div id="text"><h1 id="glulx-strings">glulx-strings</h1>
-<p>This program extracts text from Glulx or Z-code files,
+</script></head><body><div id="strings"></div><div id="ui"><div id="input-div"><input id="input" type="file"></div><div id="loading" style="display: none" class="status">Working....</div><div id="failed" style="display: none" class="status">Sorry, I don&apos;t understand how to read this file.</div><div id="text"><h1>glulx-strings</h1><div class="version">version 3.0.0</div><p>This program extracts text from Glulx or Z-code files,
 such as interactive fiction or text adventure games created
 by the Inform compiler.</p>
 <p>To use it, drag a <code>.gblorb</code>, <code>.z5</code>, <code>.z8</code>, <code>.zip</code>, or
@@ -12649,6 +12656,5 @@ not appear.</p>
 Ask your browser to save this page as an <code>.html</code> file to
 make it easier to use offline.</p>
 <p>For more information about what this is for and how it
-works, see the <a href="https://github.com/jcmf/glulx-strings">GitHub
-repository</a>.</p>
+works, see the <a href="https://github.com/jcmf/glulx-strings">GitHub repository</a>.</p>
 </div></div></body></html>

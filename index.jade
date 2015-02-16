@@ -1,7 +1,7 @@
 doctype html
 html(lang='en')
   head
-    title glulx-strings
+    title= package.name
     style
       :stylus
         body
@@ -21,8 +21,6 @@ html(lang='en')
           max-width 30em
           margin 0.5em auto
           font-family sans-serif
-          & p
-            line-height 1.2
         #input-div, .status
           margin 0
           padding 0.5em
@@ -34,6 +32,14 @@ html(lang='en')
           background-color #cfc
         #failed
           background-color #fcc
+        h1
+          margin-bottom 0
+        .version
+          font-size small
+          font-style italic
+          margin-top 0.5em
+        p
+          line-height 1.2
     script
       :coffeescript
         {extract_strings} = require '.'
@@ -83,9 +89,9 @@ html(lang='en')
       #failed.status(style='display: none').
         Sorry, I don't understand how to read this file.
       #text
+        h1= package.name
+        .version version #{package.version}
         :markdown
-          # glulx-strings
-
           This program extracts text from Glulx or Z-code files,
           such as interactive fiction or text adventure games created
           by the Inform compiler.
@@ -102,5 +108,4 @@ html(lang='en')
           make it easier to use offline.
 
           For more information about what this is for and how it
-          works, see the [GitHub
-          repository](https://github.com/jcmf/glulx-strings).
+          works, see the [GitHub repository](#{package.homepage}).
