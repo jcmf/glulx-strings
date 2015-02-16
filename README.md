@@ -30,8 +30,11 @@ such as a `.z5` or `.z8` file produced by Inform.
 Version 3 (which you are looking at) adds support for `.zip` files
 containing either of the above.
 
-[I feel like an example would be helpful.  Maybe I can come up with
-one later and stick it here.]
+[Try it now.](http://toastball.net/glulx-strings/)
+
+[I feel like an example would be helpful, for those of us who do
+not have a suitable input file lying around.  Maybe I can come up
+with one later and stick it here.]
 
 You would think it would be super easy to do this without a special
 tool -- I mean normally when you have a computer program in some
