@@ -24,8 +24,8 @@ reachable but are nonetheless in there so the game can try to emit
 helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
-[Now includes rudimentary support for unblorbed Z-code, versions 3
-through 8, e.g. a `.z8` file.]
+[Now includes rudimentary support for unblorbed Z-code, such as a
+`.z5` or `.z8` file produced by Inform.]
 
 [I feel like an example would be helpful.  Maybe I can come up with
 one later and stick it here.]
@@ -378,16 +378,15 @@ Okay, now let's see if we can extract some strings.  Check the
 header, and look up the version number and the location of the
 abbreviations table.
 
-The Z-machine doesn't always measure addresses in bytes, so I'm
-going to define a u16_b that uses byte addresses and a u16_w that
-uses word addresses.  (We can worry about packed addresses later.)
+The Z-machine expresses most addresses in bytes, so I'm just going
+to define a u16 that uses byte addresse and use that everywhere.
+I won't bother to define a u8; we can just use bytes[addr] for that.
 
     exports.extract_zcode_strings = (bytes, cb) ->
       if not exports.is_zcode bytes then throw new Error 'not z-code v3+'
-      u16_b = (byte_addr) -> bytes[byte_addr]<<8 | bytes[byte_addr+1]
-      u16_w = (word_addr) -> u16_b 2*word_addr
+      u16 = (addr) -> bytes[addr]<<8 | bytes[addr+1]
       version = bytes[0]
-      abbrev_byte_addr = u16_b 0x18
+      abbrev_addr = u16 0x18
 
 Initialize the alphabet and Unicode tables.  The story file is
 supposed to be able to override these, but maybe I'll worry about
@@ -417,32 +416,31 @@ address and returns it, or returns null if we can somehow tell that
 there's no valid string starting at that address.
 
 You can read about the gory details in section 3 of the spec, but
-the basic idea here, if I'm understanding correctly, is that every
-string is always represented as a sequence of aligned 16-bit words.
-Each such word contains three 5-bit values representing characters
-and/or fancy escape sequences, plus one bit indicating end-of-string.
-Some of the codes are "shifts" affecting how the next code is
-interpreted (e.g. uppercase), that are also used to harmlessly pad
-out the end of a string whose length isn't a multiple of three or
-whatever.  There are also ways to refer to the "Unicode table" and
-the "abbrevation table" mentioned above.
+the basic idea here is that every string is always represented as
+a sequence of 16-bit words.  Each such word contains three 5-bit
+values representing characters and/or fancy escape sequences, plus
+one bit indicating end-of-string.  Some of the codes are "shifts"
+affecting how the next code is interpreted (e.g. uppercase), that
+are also used to harmlessly pad out the end of a string whose length
+isn't a multiple of three or whatever.  There are also ways to refer
+to the "Unicode table" and the "abbrevation table" mentioned above.
 
 The `no_abbrev` flag is there to help us avoid accidentally recursively
 expanding abbreviations forever.
 
-      str_w = (word_addr, no_abbrev) ->
+      decodeString = (addr, no_abbrev) ->
         a = a0
         abbrev = tenbit = null
         pieces = []
         loop
-          if 2*word_addr + 1 >= bytes.length then return
-          v = u16_w word_addr
-          word_addr += 1
+          if addr + 1 >= bytes.length then return
+          v = u16 addr
+          addr += 2
           for shift in [10, 5, 0]
             z = (v >> shift) & 0x1f
             if abbrev
-              a = u16_b abbrev_byte_addr + 2*(32*(abbrev-1) + z)
-              piece = str_w a, true
+              a = u16 abbrev_addr + 2*(32*(abbrev-1) + z)
+              piece = decodeString a, true
               abbrev = null
               if not piece then return
               pieces.push piece
@@ -491,8 +489,12 @@ routine returned the address following the string, or something.
 But, whatever, I can just do this for now:
 
       for a in [0x20..bytes.length//2]
-        if u16_w(a-1) >> 15 and s = str_w a then cb s, 2*a
+        if u16(2*(a-1)) >> 15 and s = decodeString 2*a then cb s, 2*a
       return
+
+Actualy this isn't very good at all -- this code can only extract
+strings that start at even addresses, and now that I look more
+carefully at the spec, that isn't particularly likely.
 
 ### extract_strings
 

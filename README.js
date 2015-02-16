@@ -140,40 +140,37 @@
   };
 
   exports.extract_zcode_strings = function(bytes, cb) {
-    var a, a0, a1, a2, abbrev_byte_addr, s, str_w, u16_b, u16_w, unicode_table, version, _i, _ref;
+    var a, a0, a1, a2, abbrev_addr, decodeString, s, u16, unicode_table, version, _i, _ref;
     if (!exports.is_zcode(bytes)) {
       throw new Error('not z-code v3+');
     }
-    u16_b = function(byte_addr) {
-      return bytes[byte_addr] << 8 | bytes[byte_addr + 1];
-    };
-    u16_w = function(word_addr) {
-      return u16_b(2 * word_addr);
+    u16 = function(addr) {
+      return bytes[addr] << 8 | bytes[addr + 1];
     };
     version = bytes[0];
-    abbrev_byte_addr = u16_b(0x18);
+    abbrev_addr = u16(0x18);
     a0 = 'abcdefghijklmnopqrstuvwxyz';
     a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     a2 = 'x\n0123456789.,!?_#\'"/\\-:()';
     unicode_table = [0x0e4, 0x0f6, 0x0fc, 0x0c4, 0x0d6, 0x0dc, 0x0df, 0x0bb, 0x0ab, 0x0eb, 0x0ef, 0x0ff, 0x0cb, 0x0cf, 0x0e1, 0x0e9, 0x0ed, 0x0f3, 0x0fa, 0x0fd, 0x0c1, 0x0c9, 0x0cd, 0x0d3, 0x0da, 0x0dd, 0x0e0, 0x0e8, 0x0ec, 0x0f2, 0x0f9, 0x0c0, 0x0c8, 0x0cc, 0x0d2, 0x0d9, 0x0e2, 0x0ea, 0x0ee, 0x0f4, 0x0fb, 0x0c2, 0x0ca, 0x0ce, 0x0d4, 0x0db, 0x0e5, 0x0c5, 0x0f8, 0x0d8, 0x0e3, 0x0f1, 0x0f5, 0x0c3, 0x0d1, 0x0d5, 0x0e6, 0x0c6, 0x0e7, 0x0c7, 0x0fe, 0x0f0, 0x0de, 0x0d0, 0x0a3, 0x153, 0x152, 0x0a1, 0x0bf];
-    str_w = function(word_addr, no_abbrev) {
+    decodeString = function(addr, no_abbrev) {
       var a, abbrev, piece, pieces, shift, tenbit, v, z, zscii, _i, _len, _ref;
       a = a0;
       abbrev = tenbit = null;
       pieces = [];
       while (true) {
-        if (2 * word_addr + 1 >= bytes.length) {
+        if (addr + 1 >= bytes.length) {
           return;
         }
-        v = u16_w(word_addr);
-        word_addr += 1;
+        v = u16(addr);
+        addr += 2;
         _ref = [10, 5, 0];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           shift = _ref[_i];
           z = (v >> shift) & 0x1f;
           if (abbrev) {
-            a = u16_b(abbrev_byte_addr + 2 * (32 * (abbrev - 1) + z));
-            piece = str_w(a, true);
+            a = u16(abbrev_addr + 2 * (32 * (abbrev - 1) + z));
+            piece = decodeString(a, true);
             abbrev = null;
             if (!piece) {
               return;
@@ -226,7 +223,7 @@
       }
     };
     for (a = _i = 0x20, _ref = Math.floor(bytes.length / 2); 0x20 <= _ref ? _i <= _ref : _i >= _ref; a = 0x20 <= _ref ? ++_i : --_i) {
-      if (u16_w(a - 1) >> 15 && (s = str_w(a))) {
+      if (u16(2 * (a - 1)) >> 15 && (s = decodeString(2 * a))) {
         cb(s, 2 * a);
       }
     }
