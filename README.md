@@ -480,13 +480,17 @@ expanding abbreviations forever.
                 when 11 then '  '
                 when 13 then '\n'
                 else String.fromCharCode zscii
-            else if z is 0 then pieces.push ' '
+            else if z is 0
+              pieces.push ' '
+              a = a0
             else if z in [1..3]
               if no_abbrev then return
               abbrev = z
             else if z is 4 then a = a1
             else if z is 5 then a = a2
-            else if z is 6 and a is a2 then tenbit = []
+            else if z is 6 and a is a2
+              tenbit = []
+              a = a0
             else
               pieces.push a[z-6]
               a = a0

@@ -241,6 +241,7 @@
             }
           } else if (z === 0) {
             pieces.push(' ');
+            a = a0;
           } else if (__indexOf.call([1, 2, 3], z) >= 0) {
             if (no_abbrev) {
               return;
@@ -252,6 +253,7 @@
             a = a2;
           } else if (z === 6 && a === a2) {
             tenbit = [];
+            a = a0;
           } else {
             pieces.push(a[z - 6]);
             a = a0;
