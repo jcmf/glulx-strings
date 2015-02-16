@@ -34,10 +34,14 @@ html(lang='en')
               reader = new FileReader()
               reader.onloadend = ->
                 bytes = new Uint8Array reader.result
-                extract_strings bytes, (s) ->
+                extract_strings bytes, (s, data_addr, code_addr) ->
                   if not s = s.trimRight() then return
                   $string = $ '<div class="string">'
                   $string.text s
+                  title = []
+                  if data_addr then title.push "data:0x#{data_addr.toString 16}"
+                  if code_addr then title.push "code:0x#{code_addr.toString 16}"
+                  if title.length then $string.attr 'title', title.join '; '
                   $strings.append $string
               reader.readAsArrayBuffer file
             return
