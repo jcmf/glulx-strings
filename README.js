@@ -3,6 +3,10 @@
   var bytes, file, fs, _i, _len, _ref,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
+  exports.is_glulx = function(bytes) {
+    return bytes.length > 36 && bytes[0] === 71 && bytes[1] === 108 && bytes[2] === 117 && bytes[3] === 108;
+  };
+
   exports.extract_glulx_strings = function(bytes, cb) {
     var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _ref, _ref1;
     if (!exports.is_glulx(bytes)) {
@@ -121,10 +125,6 @@
           }
       }
     }
-  };
-
-  exports.is_glulx = function(bytes) {
-    return bytes.length > 36 && bytes[0] === 71 && bytes[1] === 108 && bytes[2] === 117 && bytes[3] === 108;
   };
 
   exports.is_zcode = function(bytes) {

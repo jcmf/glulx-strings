@@ -98,15 +98,33 @@ Let us begin.
 
 ### Glulx
 
-I want this to be a module exporting a function that takes, uh, a
-buffer-like thing, file contents, array of unsigned bytes, and...
-let's make it asynchronous, so it repeatedly invokes a callback
-with one string each time, and then returns.  Not that that's really
-asynchronous, exactly, but it's... incremental?  The caller knows
-it's got the last string when the function has returned.  The
-callback won't get invoked again later.  It's purely synchronous,
-really, but you might not have to wait as long before you start
-getting strings back.
+If you want, you can read the [Glulx
+specification](http://www.eblong.com/zarf/glulx/).
+
+The Glulx header is 36 bytes long and starts with the 4-byte sequence
+`Glul` (the "magic number") followed by a big-endian version number
+whose first byte is likely to be zero.  (If it isn't zero, the major
+version number is greater than 255.x.x -- latest is 3.1.2 as I write
+this -- and major version bumps are likely to break things, so we're
+probably screwed anyway).  I want to check for the zero byte in
+addition to the magic number so as to avoid being fooled too easily
+by stray text.
+
+    exports.is_glulx = (bytes) ->
+      return bytes.length > 36 and bytes[0] is 71 and bytes[1] is 108 and
+          bytes[2] is 117 and bytes[3] is 108
+
+Here, `bytes` is the file contents represented as a `Buffer`-like
+thing, which is to say an array of unsigned bytes.
+
+Now to actually extract strings from Glulx code!  What we need is
+a function that takes a buffer and and... let's make it asynchronous,
+so it repeatedly invokes a callback with one string each time, and
+then returns.  Not that that's really asynchronous, exactly, but
+it's... incremental?  The caller knows it's got the last string
+when the function has returned.  The callback won't get invoked
+again later.  It's purely synchronous, really, but you might not
+have to wait as long before you start getting strings back.
 
 Let's call this function, uh, `extract_glulx_strings`.
 
@@ -119,12 +137,9 @@ no longer works on `.gblorb` files.  You probably wanted the
 this function, but works on any supported file format, including
 `.gblorb`.
 
-If you want, you can read the [Glulx
-specification](http://www.eblong.com/zarf/glulx/).
-
 First check to see if this file is Glulx; if it isn't, return without
-invoking the callback, to indicate that we couldn't extract any strings
-from it.  I'll define `exports.is_glulx` a little later.
+invoking the callback, to indicate that we couldn't extract any
+strings.
 
       if not exports.is_glulx bytes then return
 
@@ -339,24 +354,6 @@ up in any of the real files I'm likely to try, but whatever.
 The `return` at the end is there to talk CoffeeScript out of helpfully
 building up an array of all the accumulated callback return values
 and returning it.
-
-Oh, wait, wasn't I supposed to define an `is_glulx` function?  Let's
-do that now.  I wanted to export this for some reason, I guess because
-it seemed like it might be useful.  Should probably move it up top at
-some point.
-
-The Glulx header is 36 bytes long and starts with the 4-byte sequence
-`Glul` (the "magic number") followed by a big-endian version number
-whose first byte is likely to be zero.  (If it isn't zero, the major
-version number is greater than 255.x.x -- latest is 3.1.2 as I write
-this -- and major version bumps are likely to break things, so we're
-probably screwed anyway).  I want to check for the zero byte in
-addition to the magic number so as to avoid being fooled too easily
-by stray text.
-
-    exports.is_glulx = (bytes) ->
-      return bytes.length > 36 and bytes[0] is 71 and bytes[1] is 108 and
-          bytes[2] is 117 and bytes[3] is 108
 
 ### Z-code
 
