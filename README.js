@@ -299,7 +299,7 @@
     if (bytes.bytes || bytes.buffer) {
       _ref = [bytes.bytes || bytes.buffer, bytes, opts], bytes = _ref[0], opts = _ref[1], cb = _ref[2];
     }
-    cb || (cb = opts.cb || opts.callback);
+    cb || (cb = opts.cb || opts.callback || opts);
     if (!bytes.slice) {
       bytes = new Buffer(bytes);
     }

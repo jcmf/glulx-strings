@@ -595,12 +595,13 @@ returning) for each matching resource it finds.
 
     exports.unblorb = (bytes, opts, cb) ->
 
-I want to be able to pass the buffer or the callback in as named options
-instead of as positional arguments.
+I want to be able to pass the buffer or the callback in as named
+options instead of as positional arguments.  Basically all of the
+arguments are optional, they just aren't all optional at once....
 
       if bytes.bytes or bytes.buffer
         [bytes, opts, cb] = [bytes.bytes or bytes.buffer, bytes, opts]
-      cb or= opts.cb or opts.callback
+      cb or= opts.cb or opts.callback or opts
 
 I'm running into trouble a bit later on trying to get this to work
 in a browser.  Aren't typed arrays supposed to have `slice`?  Maybe
