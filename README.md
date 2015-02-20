@@ -25,9 +25,9 @@ helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
 Currently supported file formats include Glulx, Z-code versions 3
-(`.z3`) through 8 (`.z8`), blorb files containing any of the above
-(`.gblorb` or `.zblorb`), or `.zip` files containing any of those
-things.
+(`.z3`) through 8 (`.z8`), TADS 3 (`.t3`), blorb files containing
+any of the above (`.gblorb`, `.zblorb`, etc), or `.zip` files
+containing any of those things.
 
 [Try it now.](http://toastball.net/glulx-strings/)
 
@@ -663,6 +663,59 @@ callback.
         cb {usage, number, type, bytes: bytes[res_start...res_end]}
       return
 
+### TADS
+
+Can we do TADS?  I just ran across a TADS game and I tried running `strings`
+on it and the results were disappointing.
+
+Aha, yes, check out the [T3 VM Image File Format
+spec](http://www.tads.org/t3doc/doc/techman/t3spec/format.htm).
+There's an "xor mask."
+
+All right, let's do this.  You know the drill.
+
+    exports.is_t3 = (bytes) ->
+      magic = 'T3-image\x0d\x0a\x1a'
+      if bytes.length < magic.length then return false
+      for ch, i in magic
+        if bytes[i] != ch.charCodeAt 0 then return false
+      return true
+
+    exports.extract_t3_strings = (bytes, cb) ->
+      if not exports.is_t3 bytes then return
+      magic = 'CPPG'
+      for i in [0...bytes.length - 17]
+        if bytes[i] != 'C'.charCodeAt(0) then continue
+        if bytes[i+1] != 'P'.charCodeAt(0) then continue
+        if bytes[i+2] != 'P'.charCodeAt(0) then continue
+        if bytes[i+3] != 'G'.charCodeAt(0) then continue
+        block_start = i + 10
+        block_size = (bytes[i+4] + 0x100*bytes[i+5] + 0x10000*bytes[i+6] +
+            0x1000000*bytes[i+7])
+        if block_size <= 7 then continue
+        if block_start + block_size > bytes.length then continue
+        pool_id = bytes[block_start] | bytes[block_start+1]<<8
+        if pool_id != 2 then continue
+        xor_mask = bytes[block_start + 6]
+        data_start = block_start + 7
+        data_end = block_start + block_size
+        partial = []
+        for j in [data_start...data_end]
+          b = bytes[j] ^ xor_mask
+          if b >= 32
+            partial.push b
+            continue
+          if not partial.length then continue
+          s = try new Buffer(partial).toString()
+          partial = []
+          if not s then continue
+          s = s.replace /^\ufffd+/, ''
+          s = s.replace /\ufffd+$/, ''
+          if not s then continue
+          if s.length < 4 and '\ufffd' in s then continue
+          cb s, j - partial.length
+      return
+
 ### extract_strings
 
 And finally, a function that extracts strings from any of the above
@@ -674,6 +727,7 @@ there's a library....
     exports.extract_strings = (bytes, cb) ->
       exports.extract_glulx_strings bytes, cb
       exports.extract_zcode_strings bytes, cb
+      exports.extract_t3_strings bytes, cb
       exports.unblorb {bytes, usage: 'Exec'}, (resource) ->
         exports.extract_strings resource.bytes, cb
       if require('is-zip') bytes

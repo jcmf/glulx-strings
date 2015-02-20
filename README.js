@@ -362,9 +362,91 @@
     }
   };
 
+  exports.is_t3 = function(bytes) {
+    var ch, i, magic, _i, _len;
+    magic = 'T3-image\x0d\x0a\x1a';
+    if (bytes.length < magic.length) {
+      return false;
+    }
+    for (i = _i = 0, _len = magic.length; _i < _len; i = ++_i) {
+      ch = magic[i];
+      if (bytes[i] !== ch.charCodeAt(0)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  exports.extract_t3_strings = function(bytes, cb) {
+    var b, block_size, block_start, data_end, data_start, i, j, magic, partial, pool_id, s, xor_mask, _i, _j, _ref;
+    if (!exports.is_t3(bytes)) {
+      return;
+    }
+    magic = 'CPPG';
+    for (i = _i = 0, _ref = bytes.length - 17; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+      if (bytes[i] !== 'C'.charCodeAt(0)) {
+        continue;
+      }
+      if (bytes[i + 1] !== 'P'.charCodeAt(0)) {
+        continue;
+      }
+      if (bytes[i + 2] !== 'P'.charCodeAt(0)) {
+        continue;
+      }
+      if (bytes[i + 3] !== 'G'.charCodeAt(0)) {
+        continue;
+      }
+      block_start = i + 10;
+      block_size = bytes[i + 4] + 0x100 * bytes[i + 5] + 0x10000 * bytes[i + 6] + 0x1000000 * bytes[i + 7];
+      if (block_size <= 7) {
+        continue;
+      }
+      if (block_start + block_size > bytes.length) {
+        continue;
+      }
+      pool_id = bytes[block_start] | bytes[block_start + 1] << 8;
+      if (pool_id !== 2) {
+        continue;
+      }
+      xor_mask = bytes[block_start + 6];
+      data_start = block_start + 7;
+      data_end = block_start + block_size;
+      partial = [];
+      for (j = _j = data_start; data_start <= data_end ? _j < data_end : _j > data_end; j = data_start <= data_end ? ++_j : --_j) {
+        b = bytes[j] ^ xor_mask;
+        if (b >= 32) {
+          partial.push(b);
+          continue;
+        }
+        if (!partial.length) {
+          continue;
+        }
+        s = (function() {
+          try {
+            return new Buffer(partial).toString();
+          } catch (_error) {}
+        })();
+        partial = [];
+        if (!s) {
+          continue;
+        }
+        s = s.replace(/^\ufffd+/, '');
+        s = s.replace(/\ufffd+$/, '');
+        if (!s) {
+          continue;
+        }
+        if (s.length < 4 && __indexOf.call(s, '\ufffd') >= 0) {
+          continue;
+        }
+        cb(s, j - partial.length);
+      }
+    }
+  };
+
   exports.extract_strings = function(bytes, cb) {
     exports.extract_glulx_strings(bytes, cb);
     exports.extract_zcode_strings(bytes, cb);
+    exports.extract_t3_strings(bytes, cb);
     exports.unblorb({
       bytes: bytes,
       usage: 'Exec'
