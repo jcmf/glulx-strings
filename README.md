@@ -122,28 +122,15 @@ this function, but works on any supported file format, including
 If you want, you can read the [Glulx
 specification](http://www.eblong.com/zarf/glulx/).
 
-The Glulx header is 36 bytes long and starts with the 4-byte sequence
-`Glul` (the "magic number") followed by a big-endian version number
-whose first byte is likely to be zero.  (If it isn't zero, the major
-version number is greater than 255.x.x -- latest is 3.1.2 as I write
-this -- and major version bumps are likely to break things, so we're
-probably screwed anyway).  I want to check for the zero byte in
-addition to the magic number so as to avoid being fooled too easily
-by any stray text earlier in whatever file the user happened to
-hand us.
+First check to see if this file is Glulx; if it isn't, return without
+invoking the callback, to indicate that we couldn't extract any strings
+from it.  I'll define `exports.is_glulx` a little later.
 
-      header_size = 36
-      if bytes.length < header_size then return
-      for i in [0]
-        if (bytes[i] == 71 and bytes[i+1] == 108 and bytes[i+2] == 117 and
-            bytes[i+3] == 108 and bytes[i+4] == 0)
-          glulx_start = i
-          break
-      if not glulx_start? then return
+      if not exports.is_glulx bytes then return
 
-Just to be clear, our error-handling strategy when faced with a
-file we don't understand is to not invoke the callback at all --
-just quietly fail to extract any strings.
+This variable is left over from version 1.  I'll remove it shortly.
+
+      glulx_start = 0
 
 Okay, so at this point `bytes[glulx_start]` should be the first
 byte of the Glulx header and VM address space.  Pointer addresses
@@ -184,6 +171,7 @@ even go there, it doesn't matter.  Instead let's do this:
       string_table_size = u32 string_table_start
       string_table_end = string_table_start + string_table_size
       huffman_root = u32 string_table_start+8
+      header_size = 36
       code_start = header_size
       code_end = string_table_start
       data_start = string_table_end
@@ -352,11 +340,23 @@ The `return` at the end is there to talk CoffeeScript out of helpfully
 building up an array of all the accumulated callback return values
 and returning it.
 
-And that's our exported function!  If you're building some piece
-of software that needs to be able to extract strings from Glulx,
-you can stop here.  [Though actually you probably want to use the
-`extract_strings` function I later added below, which has the same
-signature but works with both Glulx and Z-code.]
+Oh, wait, wasn't I supposed to define an `is_glulx` function?  Let's
+do that now.  I wanted to export this for some reason, I guess because
+it seemed like it might be useful.  Should probably move it up top at
+some point.
+
+The Glulx header is 36 bytes long and starts with the 4-byte sequence
+`Glul` (the "magic number") followed by a big-endian version number
+whose first byte is likely to be zero.  (If it isn't zero, the major
+version number is greater than 255.x.x -- latest is 3.1.2 as I write
+this -- and major version bumps are likely to break things, so we're
+probably screwed anyway).  I want to check for the zero byte in
+addition to the magic number so as to avoid being fooled too easily
+by stray text.
+
+    exports.is_glulx = (bytes) ->
+      return bytes.length > 36 and bytes[0] is 71 and bytes[1] is 108 and
+          bytes[2] is 117 and bytes[3] is 108
 
 ### Z-code
 
@@ -386,11 +386,6 @@ impossible that it'll happen.
           bytes[0] >= 3 and
           (bytes[0x10] & 0xfe) is 0 and
           (bytes[0x12] & 0xf0) is (bytes[0x13] & 0xf0) is 0x30)
-
-Maybe later I can also go back and export an `is_glulx` function,
-or something, but in the meantime this'll at least be enough to let
-us distinguish between the two.  Though actually I'm not even sure
-we need to -- we can just try both....
 
 Okay, now let's see if we can extract some strings.  First we check
 the header, and look up the version number and the location of the

@@ -55,22 +55,11 @@ p {
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   exports.extract_glulx_strings = function(bytes, cb) {
-    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, i, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _j, _len, _ref, _ref1, _ref2;
-    header_size = 36;
-    if (bytes.length < header_size) {
+    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _ref, _ref1;
+    if (!exports.is_glulx(bytes)) {
       return;
     }
-    _ref = [0];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      i = _ref[_i];
-      if (bytes[i] === 71 && bytes[i + 1] === 108 && bytes[i + 2] === 117 && bytes[i + 3] === 108 && bytes[i + 4] === 0) {
-        glulx_start = i;
-        break;
-      }
-    }
-    if (glulx_start == null) {
-      return;
-    }
+    glulx_start = 0;
     u8 = function(addr) {
       return bytes[glulx_start + addr];
     };
@@ -82,6 +71,7 @@ p {
     string_table_size = u32(string_table_start);
     string_table_end = string_table_start + string_table_size;
     huffman_root = u32(string_table_start + 8);
+    header_size = 36;
     code_start = header_size;
     code_end = string_table_start;
     data_start = string_table_end;
@@ -159,7 +149,7 @@ p {
       }
     };
     assert = require('assert');
-    for (code_addr = _j = code_start; code_start <= code_end ? _j < code_end : _j > code_end; code_addr = code_start <= code_end ? ++_j : --_j) {
+    for (code_addr = _i = code_start; code_start <= code_end ? _i < code_end : _i > code_end; code_addr = code_start <= code_end ? ++_i : --_i) {
       data_addr = u32(code_addr);
       if (!((data_start <= data_addr && data_addr < data_end))) {
         continue;
@@ -177,11 +167,15 @@ p {
           decode_huffman(data_addr + 1, wrapped_cb);
           break;
         case 0xe2:
-          if (((0 === (_ref2 = u8(data_addr + 1)) && _ref2 === (_ref1 = u8(data_addr + 2))) && _ref1 === u8(data_addr + 3))) {
+          if (((0 === (_ref1 = u8(data_addr + 1)) && _ref1 === (_ref = u8(data_addr + 2))) && _ref === u8(data_addr + 3))) {
             decode_u32(data_addr + 4, wrapped_cb);
           }
       }
     }
+  };
+
+  exports.is_glulx = function(bytes) {
+    return bytes.length > 36 && bytes[0] === 71 && bytes[1] === 108 && bytes[2] === 117 && bytes[3] === 108;
   };
 
   exports.is_zcode = function(bytes) {
