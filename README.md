@@ -26,8 +26,8 @@ and does not know how else to proceed.
 
 Currently supported file formats include Glulx, Z-code versions 3
 (`.z3`) through 8 (`.z8`), blorb files containing any of the above
-(`.gblorb` or `.zblorb`), or `.zip` files containing any of the
-above.
+(`.gblorb` or `.zblorb`), or `.zip` files containing any of those
+things.
 
 [Try it now.](http://toastball.net/glulx-strings/)
 
@@ -98,7 +98,8 @@ Let us begin.
 
 ### Glulx
 
-If you want, you can read the [Glulx
+Let's start with a thing that can tell us whether a file is even a
+Glulx file.  If you want, you can read the [Glulx
 specification](http://www.eblong.com/zarf/glulx/).
 
 The Glulx header is 36 bytes long and starts with the 4-byte sequence
