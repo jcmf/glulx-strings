@@ -2,7 +2,7 @@
 
 extract raw text fragments from interactive fiction glulx gblorb Inform
 
-## wtf is this thing?!  Plz expln plz!
+## What is this thing?!
 
 Okay, so, maybe you've written a shiny new text adventure game in
 Inform 7 and sent the `.gblorb` out to your testers and then
@@ -16,21 +16,18 @@ or they aren't doing it for you and you've broken down and searched
 everywhere for a walkthrough or a forum thread, anything, nope,
 crickets.
 
-Anyway this thing takes the contents of a `.gblorb` file (containing
-a Glulx game) and extracts the text.  Typically this includes all
+Anyway this thing takes the contents of a file containing a Glulx
+or Z-code game and extracts the text.  Typically this includes all
 of the text visible in the game.  It may also include various
 internal identifiers that might or might not actually be theoretically
 reachable but are nonetheless in there so the game can try to emit
 helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
-Version 2 also includes halfway decent support for unblorbed Z-code,
-such as a `.z5` or `.z8` file produced by Inform.
-
-Version 3 adds support for `.zip` archive files containing any
-supported format.
-
-Version 3.1 adds support for `.zblorb` files containing blorbed Z-code.
+Currently supported file formats include Glulx, Z-code versions 3
+(`.z3`) through 8 (`.z8`), blorb files containing any of the above
+(`.gblorb` or `.zblorb`), or `.zip` files containing any of the
+above.
 
 [Try it now.](http://toastball.net/glulx-strings/)
 
