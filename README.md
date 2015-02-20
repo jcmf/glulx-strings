@@ -112,16 +112,12 @@ Let's call this function, uh, `extract_glulx_strings`.
 
     exports.extract_glulx_strings = (bytes, cb) ->
 
-Okay, so, first thing we need to do is... I'm assuming most people
-are going to want to pass in a `.gblorb`, because most games come
-packaged that way... er, most IF games written with Inform 7, I
-should say?  As opposed to a plain Glulx file, is what I mean.  So
-we first need to find the Glulx.  And so a `.gblorb` is some kind
-of IFF file and we could parse it and find the right chunk, or we
-could just say screw that and look for the Glulx header, and that
-way this'll work even if it's just a plain Glulx file, or some other
-kind of file with a `.gblorb` and/or Glulx embedded in it, so long
-as it's not like compressed or encoded in some other fancy way.
+This used to do a slow linear search for the Glulx magic, but I've
+since added proper blorb support, and as of version 4 this function
+no longer works on `.gblorb` files.  You probably wanted the
+`extract_strings` function anyway.  It has the same signature as
+this function, but works on any supported file format, including
+`.gblorb`.
 
 If you want, you can read the [Glulx
 specification](http://www.eblong.com/zarf/glulx/).
@@ -138,7 +134,7 @@ hand us.
 
       header_size = 36
       if bytes.length < header_size then return
-      for i in [0...bytes.length-header_size]
+      for i in [0]
         if (bytes[i] == 71 and bytes[i+1] == 108 and bytes[i+2] == 117 and
             bytes[i+3] == 108 and bytes[i+4] == 0)
           glulx_start = i
@@ -689,8 +685,8 @@ there's a library....
     exports.extract_strings = (bytes, cb) ->
       exports.extract_glulx_strings bytes, cb
       exports.extract_zcode_strings bytes, cb
-      exports.unblorb {bytes, type: 'ZCOD'}, (resource) ->
-        exports.extract_zcode_strings resource.bytes, cb
+      exports.unblorb {bytes, usage: 'Exec'}, (resource) ->
+        exports.extract_strings resource.bytes, cb
       if require('is-zip') bytes
         require('zip').Reader(bytes).forEach (entry) ->
           exports.extract_strings entry.getData(), cb
