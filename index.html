@@ -59,13 +59,12 @@ p {
   };
 
   exports.extract_glulx_strings = function(bytes, cb) {
-    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, glulx_start, header_size, huffman_root, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _ref, _ref1;
+    var assert, code_addr, code_end, code_start, data_addr, data_end, data_start, decode_huffman, decode_u32, decode_u8, header_size, huffman_root, ram_start, string_table_end, string_table_size, string_table_start, u32, u8, wrapped_cb, _i, _ref, _ref1;
     if (!exports.is_glulx(bytes)) {
       return;
     }
-    glulx_start = 0;
     u8 = function(addr) {
-      return bytes[glulx_start + addr];
+      return bytes[addr];
     };
     u32 = function(addr) {
       return u8(addr) * 0x1000000 + u8(addr + 1) * 0x10000 + u8(addr + 2) * 0x100 + u8(addr + 3);

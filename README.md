@@ -143,18 +143,13 @@ strings.
 
       if not exports.is_glulx bytes then return
 
-This variable is left over from version 1.  I'll remove it shortly.
+Okay, so at this point `bytes[0]` should be the first byte of the
+Glulx header and VM address space.  Pointer addresses are always
+in bytes, even if the type being addressed is larger than one byte,
+because there are no alignment requirements.  The basic types we
+care about are unsigned 8-bit and 32-bit numbers.  8-bit is trivial:
 
-      glulx_start = 0
-
-Okay, so at this point `bytes[glulx_start]` should be the first
-byte of the Glulx header and VM address space.  Pointer addresses
-are always in bytes, even if the type being addressed is larger
-than one byte, because there are no alignment requirements.  The
-basic types we care about are unsigned 8-bit and 32-bit numbers.
-8-bit is super easy:
-
-      u8 = (addr) -> bytes[glulx_start + addr]
+      u8 = (addr) -> bytes[addr]
 
 32-bit unsigned numbers are going to be a bit of a pain because
 Javascript bitwise operators return *signed* 32-bit results, but
