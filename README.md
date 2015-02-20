@@ -27,8 +27,10 @@ and does not know how else to proceed.
 Version 2 also includes halfway decent support for unblorbed Z-code,
 such as a `.z5` or `.z8` file produced by Inform.
 
-Version 3 (which you are looking at) adds support for `.zip` files
-containing either of the above.
+Version 3 adds support for `.zip` archive files containing any
+supported format.
+
+Version 3.1 adds support for `.zblorb` files containing blorbed Z-code.
 
 [Try it now.](http://toastball.net/glulx-strings/)
 
@@ -572,9 +574,117 @@ I'm almost tempted to try to detect and inline those somehow.  But
 that way lies madness, surely -- the whole point of this exercise
 was to avoid writing a full disassembler....
 
+### Blorb
+
+It turns out that Z-code can come in Blorb files too, and the method
+I was using to find Glulx in a `.gblorb` was ugly and slow and
+didn't generalize super well, so let's make a thing that can extract
+useful information from blorb files.  I actualy found an npm module
+that claims to do this, but it looks like it absolutely wants to
+do its own file I/O, rather than letting me pass in a byte buffer,
+boooo.  Also it looks super complicated.  Surely we can do better?
+For certain highly specialized values of "better"?
+
+At some point might be cool to be able to extract images as well
+as text.  Let's maybe lay the groundwork for that now.
+
+We'll need to consult the [Blorb
+spec](http://www.eblong.com/zarf/blorb/blorb.txt) and the [IFF
+spec](http://www.martinreddy.net/gfx/2d/IFF.txt).  Actually I'm
+finding all of this pretty difficult to understand, but looking
+back and forth between the Blorb spec and the first few bytes of
+an actual `.zblorb` file is helping me put things in the right
+context, I hope.
+
+First a thing that can tell us if we're even looking at a blorb
+file at all.  Looks like 12 of the first 16 bytes are fixed, which
+should be plenty.
+
+    exports.is_blorb = (bytes) ->
+      magic = 'FORM....IFRSRIdx'
+      if bytes.length < magic.length then return false
+      for ch, i in magic
+        if ch is '.' then continue
+        if bytes[i] != ch.charCodeAt 0 then return false
+      return true
+
+Next I think what we want is a routine that takes a blorb and maybe
+some optional arguments describing which resources we might be
+interested in, and invokes a callback (synchronously, before
+returning) for each matching resource it finds.
+
+    exports.unblorb = (bytes, opts, cb) ->
+
+I want to be able to pass the buffer or the callback in as named options
+instead of as positional arguments.
+
+      if bytes.bytes or bytes.buffer
+        [bytes, opts, cb] = [bytes.bytes or bytes.buffer, bytes, opts]
+      cb or= opts.cb or opts.callback
+
+I'm running into trouble a bit later on trying to get this to work
+in a browser.  Aren't typed arrays supposed to have `slice`?  Maybe
+I can get Browserify's Buffer shim to help me out here?  Yes, this
+totally seems to fix the problem:
+
+      if not bytes.slice then bytes = new Buffer bytes
+
+Make sure this is a blorb.
+
+      if not exports.is_blorb opts.bytes then return
+
+There are going to be some big-endian 32-bit integers in here.  IFF
+spec makes it sound like they're signed but I'm going to ignore
+that and pretend they're unsigned, even though signed would be a
+bit easier because I could use Javascript bitwise operators, but
+whatever, this isn't hard:
+
+      u32 = (addr) -> (bytes[addr]*0x1000000 + bytes[addr+1]*0x10000 +
+        bytes[addr+2]*0x100 + bytes[addr+3])
+
+IFF also likes to have four-byte IDs that are really ASCII strings.
+
+      id = (addr) ->
+        (String.fromCharCode(bytes[addr + i]) for i in [0..3]).join ''
+
+Go through the resource table.  It has both a number of bytes and a number
+of 12-byte entries; let's use whichever is effectively smaller.
+
+      offset = 24
+      stride = 12
+      count =
+        Math.min u32(20), Math.min(u32(16)-4, bytes.length-offset) // stride
+      for i in [0...count]
+        entry = offset + stride*i
+        usage = id entry
+        number = u32 entry+4
+        chunk_start = u32 entry+8
+
+Figure out resource type and size.  Quietly ignore it if it's out of bounds.
+
+        if not chunk_start then continue
+        res_start = chunk_start + 8
+        if res_start > bytes.length then continue
+        type = id chunk_start
+        res_size = u32 chunk_start+4
+        res_end = res_start + res_size
+        if res_end > bytes.length then continue
+
+If the caller asked for a particular resource usage, number, or
+type, filter out non-matching entries.  Otherwise, invoke the
+callback.
+
+        if opts.usage and opts.usage != usage then continue
+        if opts.number? and opts.number != number then continue
+        if opts.type and opts.type != type then continue
+        if opts.type and opts.type != type then continue
+        cb {usage, number, type, bytes: bytes[res_start...res_end]}
+      return
+
 ### extract_strings
 
-And finally, a function that extracts strings from either type of file.
+And finally, a function that extracts strings from any of the above
+types of file.
 
 Actually why don't we make it work for `.zip` files too?  I think
 there's a library....
@@ -582,6 +692,8 @@ there's a library....
     exports.extract_strings = (bytes, cb) ->
       exports.extract_glulx_strings bytes, cb
       exports.extract_zcode_strings bytes, cb
+      exports.unblorb {bytes, type: 'ZCOD'}, (resource) ->
+        exports.extract_zcode_strings resource.bytes, cb
       if require('is-zip') bytes
         require('zip').Reader(bytes).forEach (entry) ->
           exports.extract_strings entry.getData(), cb

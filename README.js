@@ -281,9 +281,101 @@
     }
   };
 
+  exports.is_blorb = function(bytes) {
+    var ch, i, magic, _i, _len;
+    magic = 'FORM....IFRSRIdx';
+    if (bytes.length < magic.length) {
+      return false;
+    }
+    for (i = _i = 0, _len = magic.length; _i < _len; i = ++_i) {
+      ch = magic[i];
+      if (ch === '.') {
+        continue;
+      }
+      if (bytes[i] !== ch.charCodeAt(0)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  exports.unblorb = function(bytes, opts, cb) {
+    var chunk_start, count, entry, i, id, number, offset, res_end, res_size, res_start, stride, type, u32, usage, _i, _ref;
+    if (bytes.bytes || bytes.buffer) {
+      _ref = [bytes.bytes || bytes.buffer, bytes, opts], bytes = _ref[0], opts = _ref[1], cb = _ref[2];
+    }
+    cb || (cb = opts.cb || opts.callback);
+    if (!bytes.slice) {
+      bytes = new Buffer(bytes);
+    }
+    if (!exports.is_blorb(opts.bytes)) {
+      return;
+    }
+    u32 = function(addr) {
+      return bytes[addr] * 0x1000000 + bytes[addr + 1] * 0x10000 + bytes[addr + 2] * 0x100 + bytes[addr + 3];
+    };
+    id = function(addr) {
+      var i;
+      return ((function() {
+        var _i, _results;
+        _results = [];
+        for (i = _i = 0; _i <= 3; i = ++_i) {
+          _results.push(String.fromCharCode(bytes[addr + i]));
+        }
+        return _results;
+      })()).join('');
+    };
+    offset = 24;
+    stride = 12;
+    count = Math.min(u32(20), Math.floor(Math.min(u32(16) - 4, bytes.length - offset) / stride));
+    for (i = _i = 0; 0 <= count ? _i < count : _i > count; i = 0 <= count ? ++_i : --_i) {
+      entry = offset + stride * i;
+      usage = id(entry);
+      number = u32(entry + 4);
+      chunk_start = u32(entry + 8);
+      if (!chunk_start) {
+        continue;
+      }
+      res_start = chunk_start + 8;
+      if (res_start > bytes.length) {
+        continue;
+      }
+      type = id(chunk_start);
+      res_size = u32(chunk_start + 4);
+      res_end = res_start + res_size;
+      if (res_end > bytes.length) {
+        continue;
+      }
+      if (opts.usage && opts.usage !== usage) {
+        continue;
+      }
+      if ((opts.number != null) && opts.number !== number) {
+        continue;
+      }
+      if (opts.type && opts.type !== type) {
+        continue;
+      }
+      if (opts.type && opts.type !== type) {
+        continue;
+      }
+      cb({
+        usage: usage,
+        number: number,
+        type: type,
+        bytes: bytes.slice(res_start, res_end)
+      });
+    }
+  };
+
   exports.extract_strings = function(bytes, cb) {
     exports.extract_glulx_strings(bytes, cb);
     exports.extract_zcode_strings(bytes, cb);
+    exports.unblorb({
+      bytes: bytes,
+      type: 'ZCOD'
+    }, function(resource) {
+      return exports.extract_zcode_strings(resource.bytes, cb);
+    });
     if (require('is-zip')(bytes)) {
       return require('zip').Reader(bytes).forEach(function(entry) {
         return exports.extract_strings(entry.getData(), cb);
