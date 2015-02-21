@@ -112,8 +112,8 @@ addition to the magic number so as to avoid being fooled too easily
 by stray text.
 
     exports.is_glulx = (bytes) ->
-      return bytes.length > 36 and bytes[0] is 71 and bytes[1] is 108 and
-          bytes[2] is 117 and bytes[3] is 108
+      bytes.length > 36 and bytes[0] is 71 and bytes[1] is 108 and
+          bytes[2] is 117 and bytes[3] is 108 and bytes[4] is 0
 
 Here, `bytes` is the file contents represented as a `Buffer`-like
 thing, which is to say an array of unsigned bytes.
@@ -375,10 +375,9 @@ back and add support for versions 1 and 2 later.  I guess it's not
 impossible that it'll happen.
 
     exports.is_zcode = (bytes) ->
-      (bytes.length >= 0x40 and
-          bytes[0] >= 3 and
+      bytes.length >= 0x40 and bytes[0] >= 3 and
           (bytes[0x10] & 0xfe) is 0 and
-          (bytes[0x12] & 0xf0) is (bytes[0x13] & 0xf0) is 0x30)
+          (bytes[0x12] & 0xf0) is (bytes[0x13] & 0xf0) is 0x30
 
 Okay, now let's see if we can extract some strings.  First we check
 the header, and look up the version number and the location of the
@@ -683,12 +682,11 @@ All right, let's do this.  You know the drill.
 
     exports.extract_t3_strings = (bytes, cb) ->
       if not exports.is_t3 bytes then return
-      magic = 'CPPG'
       for i in [0...bytes.length - 17]
-        if bytes[i] != 'C'.charCodeAt(0) then continue
-        if bytes[i+1] != 'P'.charCodeAt(0) then continue
-        if bytes[i+2] != 'P'.charCodeAt(0) then continue
-        if bytes[i+3] != 'G'.charCodeAt(0) then continue
+        if bytes[i+0] != 67 then continue  # C
+        if bytes[i+1] != 80 then continue  # P
+        if bytes[i+2] != 80 then continue  # P
+        if bytes[i+3] != 71 then continue  # G
         block_start = i + 10
         block_size = (bytes[i+4] + 0x100*bytes[i+5] + 0x10000*bytes[i+6] +
             0x1000000*bytes[i+7])

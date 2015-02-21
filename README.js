@@ -4,7 +4,7 @@
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   exports.is_glulx = function(bytes) {
-    return bytes.length > 36 && bytes[0] === 71 && bytes[1] === 108 && bytes[2] === 117 && bytes[3] === 108;
+    return bytes.length > 36 && bytes[0] === 71 && bytes[1] === 108 && bytes[2] === 117 && bytes[3] === 108 && bytes[4] === 0;
   };
 
   exports.extract_glulx_strings = function(bytes, cb) {
@@ -378,22 +378,21 @@
   };
 
   exports.extract_t3_strings = function(bytes, cb) {
-    var b, block_size, block_start, data_end, data_start, i, j, magic, partial, pool_id, s, xor_mask, _i, _j, _ref;
+    var b, block_size, block_start, data_end, data_start, i, j, partial, pool_id, s, xor_mask, _i, _j, _ref;
     if (!exports.is_t3(bytes)) {
       return;
     }
-    magic = 'CPPG';
     for (i = _i = 0, _ref = bytes.length - 17; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
-      if (bytes[i] !== 'C'.charCodeAt(0)) {
+      if (bytes[i + 0] !== 67) {
         continue;
       }
-      if (bytes[i + 1] !== 'P'.charCodeAt(0)) {
+      if (bytes[i + 1] !== 80) {
         continue;
       }
-      if (bytes[i + 2] !== 'P'.charCodeAt(0)) {
+      if (bytes[i + 2] !== 80) {
         continue;
       }
-      if (bytes[i + 3] !== 'G'.charCodeAt(0)) {
+      if (bytes[i + 3] !== 71) {
         continue;
       }
       block_start = i + 10;
