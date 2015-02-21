@@ -658,7 +658,6 @@ callback.
         if opts.usage and opts.usage != usage then continue
         if opts.number? and opts.number != number then continue
         if opts.type and opts.type != type then continue
-        if opts.type and opts.type != type then continue
         cb {usage, number, type, bytes: bytes[res_start...res_end]}
       return
 

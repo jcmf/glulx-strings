@@ -350,9 +350,6 @@
       if (opts.type && opts.type !== type) {
         continue;
       }
-      if (opts.type && opts.type !== type) {
-        continue;
-      }
       cb({
         usage: usage,
         number: number,
