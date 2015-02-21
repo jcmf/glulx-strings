@@ -686,10 +686,10 @@ the claim is that it's the only such thing and that it's mainly
 used for debugging, or something, so right now I don't want to
 bother.
 
-Let's just, uh, dump anything that appears a constant data pool and
-looks like moderately well-formed UTF-8.  Break on NULs and control
-characters, on the theory that those aren't likely to appear in
-strings and if they do who cares.
+Let's just, uh, dump anything that appears in a constant data pool
+and looks like moderately well-formed UTF-8.  Break on NULs and
+control characters, on the theory that those aren't likely to appear
+in strings and if they do who cares.
 
 Going to lean on the Buffer constructor to do the UTF-8 decode for
 us.  It looks like it quietly replaces invalid sequences with code
@@ -702,7 +702,9 @@ paranoid.
 
 Maybe in some later version I can scan bytecode for string start
 addresses and use that to help disambiguate?  I wonder if that would
-even produce noticeably better results.  Maybe.
+even produce noticeably better results.  Maybe.  It does seem like
+at least some of these strings are just shoehorned together with
+no separator.  Lengths must be elsewhere.
 
     exports.extract_t3_strings = (bytes, cb) ->
       if not exports.is_t3 bytes then return
@@ -740,6 +742,16 @@ Okay, yeah, that last part where I use the same `data_addr` for all
 the pieces after splitting on decode errors seems a bit unfortunate.
 I guess it wouldn't be that hard to just do the UTF-8 decode by
 hand, so we could keep closer track of what came from where.
+Especially if... am I reading this right, that this thing doesn't
+believe in >16-bit code points?  I understand that people were
+somehow able to fool themselves fifteen years ago, but... or is
+this a Windows thing maybe?  Funny how there are stll all these
+pockets of 16-bit Unicode frozen in time.  All from a certain era,
+I guess.  Anyway maybe I should just expect it to be UTF-8 with
+like surrogates in it.  Ew, no, I refuse to assume that.  How hard
+could it be to just decode proper UTF-8?  Will whatever's rendering
+the glyphs quietly deal with any surrogates that might crop up, or
+will I be expected to normalize?
 
 ### ADRIFT
 
