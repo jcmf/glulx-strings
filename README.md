@@ -565,7 +565,7 @@ do its own file I/O, rather than letting me pass in a byte buffer,
 boooo.  Also it looks super complicated.  Surely we can do better?
 For certain highly specialized values of "better"?
 
-At some point might be cool to be able to extract images as well
+At some point it might be cool to be able to extract images as well
 as text.  Let's maybe lay the groundwork for that now.
 
 We'll need to consult the [Blorb
@@ -760,7 +760,7 @@ so for now I'm waiting until that happens naturally.
 More interesting would be ADRIFT 5, the latest, but if anyone's
 reverse-engineered that one yet, I haven't seen it.  Maybe because
 there's that Mono version of the official thing that allegedly runs
-on Linux and even on OS X even though he says it's untested but
+on Linux and even on OS X even though it says it's untested but
 like what could possibly go wrong, right?  I mean I can't blame the
 ADRIFT people (person?), like I *have* a Mac and *I* don't really
 want to be the first one to test it either.  That can't be right,
