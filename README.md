@@ -679,6 +679,31 @@ All right, let's do this.  You know the drill.
         if bytes[i] != ch.charCodeAt 0 then return false
       return true
 
+Okay, that was the thing, so next we need to do the thing.  I'm
+assuming that the only thing we care about is the constant data
+pool pages?  I do see an opcode that prints an inline string, but
+the claim is that it's the only such thing and that it's mainly
+used for debugging, or something, so right now I don't want to
+bother.
+
+Let's just, uh, dump anything that appears a constant data pool and
+looks like moderately well-formed UTF-8.  Break on NULs and control
+characters, on the theory that those aren't likely to appear in
+strings and if they do who cares.
+
+Going to lean on the Buffer constructor to do the UTF-8 decode for
+us.  It looks like it quietly replaces invalid sequences with code
+point 0xfffd, good old REPLACEMENT CHARACTER, the little question
+mark in a diamond that shows up when something went wrong, so I'll
+just, uh, do something dodgy with those I guess.  I stuck a try in
+there just in case it occasionally decides to be less quiet, because
+the API docs I'm looking at seem suspiciously thin and I'm feeling
+paranoid.
+
+Maybe in some later version I can scan bytecode for string start
+addresses and use that to help disambiguate?  I wonder if that would
+even produce noticeably better results.  Maybe.
+
     exports.extract_t3_strings = (bytes, cb) ->
       if not exports.is_t3 bytes then return
       for i in [0...bytes.length - 17]
@@ -696,22 +721,68 @@ All right, let's do this.  You know the drill.
         xor_mask = bytes[block_start + 6]
         data_start = block_start + 7
         data_end = block_start + block_size
-        partial = []
+        encoded = []
         for j in [data_start...data_end]
           b = bytes[j] ^ xor_mask
           if b >= 32
-            partial.push b
+            encoded.push b
             continue
-          if not partial.length then continue
-          s = try new Buffer(partial).toString()
+          if not encoded.length then continue
+          data_addr = j - encoded.length
+          decoded = try new Buffer(encoded).toString()
           partial = []
-          if not s then continue
-          s = s.replace /^\ufffd+/, ''
-          s = s.replace /\ufffd+$/, ''
-          if not s then continue
-          if s.length < 4 and '\ufffd' in s then continue
-          cb s, j - partial.length
+          if not decoded then continue
+          for s in decoded.split '\ufffd'
+            if s then cb s, data_addr
       return
+
+Okay, yeah, that last part where I use the same `data_addr` for all
+the pieces after splitting on decode errors seems a bit unfortunate.
+I guess it wouldn't be that hard to just do the UTF-8 decode by
+hand, so we could keep closer track of what came from where.
+
+### ADRIFT
+
+So, uh, gosh, I ran into this ADRIFT game (blorbed, no less!) and
+I ran `strings` on it and it found some XML but it wasn't very
+satisfying XML so I did a bit of digging and... gosh.  Yeah.  Doesn't
+look like there's a public spec.  Seems decidedly secret, in fact!
+A few people reverse-engineered some earlier versions of the file
+format, though, in order to make their own interpreters, so they
+could play games on non-Windows platforms.  Sounds like the effort
+required was pretty high, and the punch line (from my perspective)
+involved some combination of zlib and Visual Basic's PRNG.
+
+So I could *probably* somehow get this to work with ADRIFT 3.8/3.9/4
+files, but I haven't happened to run in to any of those recently,
+so for now I'm waiting until that happens naturally.
+
+More interesting would be ADRIFT 5, the latest, but if anyone's
+reverse-engineered that one yet, I haven't seen it.  Maybe because
+there's that Mono version of the official thing that allegedly runs
+on Linux and even on OS X even though he says it's untested but
+like what could possibly go wrong, right?  I mean I can't blame the
+ADRIFT people (person?), like I *have* a Mac and *I* don't really
+want to be the first one to test it either.  That can't be right,
+I bet lots of people have tested it, I bet it works fine.  I just...
+I hate installing software, you know?  Meaning Mono, in this case.
+Plus my computer is really old and won't take OS upgrades anymore
+so it's pretty far behind at this point and the odds of any given
+thing actually working are... well, I don't know, I mean, sometimes
+something will work.  Like, node still works, apparently.
+
+So, okay, I guess what I would realistically need is a decent
+disassembler for, uh, what do you even call it?  .NET?  And there
+seem to be some of those floating around, but they seem to be
+Windows-only.  Not even Mono.  I know, right?  And, gosh, I don't
+know.  That doesn't sound like a fun thing to try to make happen
+on a weekday evening.
+
+But if any of you fine folks ever happen to manage to figure out
+how to deobfuscate one of these ADRIFT 5 TAF files to the point
+where `strings` works (or whatever, like maybe it'll end up being
+UTF-16-LE or something, I could totally see that), just, like,
+contact me through GitHub or whatever.
 
 ### extract_strings
 

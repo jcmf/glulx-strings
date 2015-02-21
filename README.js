@@ -375,7 +375,7 @@
   };
 
   exports.extract_t3_strings = function(bytes, cb) {
-    var b, block_size, block_start, data_end, data_start, i, j, partial, pool_id, s, xor_mask, _i, _j, _ref;
+    var b, block_size, block_start, data_addr, data_end, data_start, decoded, encoded, i, j, partial, pool_id, s, xor_mask, _i, _j, _k, _len, _ref, _ref1;
     if (!exports.is_t3(bytes)) {
       return;
     }
@@ -407,34 +407,33 @@
       xor_mask = bytes[block_start + 6];
       data_start = block_start + 7;
       data_end = block_start + block_size;
-      partial = [];
+      encoded = [];
       for (j = _j = data_start; data_start <= data_end ? _j < data_end : _j > data_end; j = data_start <= data_end ? ++_j : --_j) {
         b = bytes[j] ^ xor_mask;
         if (b >= 32) {
-          partial.push(b);
+          encoded.push(b);
           continue;
         }
-        if (!partial.length) {
+        if (!encoded.length) {
           continue;
         }
-        s = (function() {
+        data_addr = j - encoded.length;
+        decoded = (function() {
           try {
-            return new Buffer(partial).toString();
+            return new Buffer(encoded).toString();
           } catch (_error) {}
         })();
         partial = [];
-        if (!s) {
+        if (!decoded) {
           continue;
         }
-        s = s.replace(/^\ufffd+/, '');
-        s = s.replace(/\ufffd+$/, '');
-        if (!s) {
-          continue;
+        _ref1 = decoded.split('\ufffd');
+        for (_k = 0, _len = _ref1.length; _k < _len; _k++) {
+          s = _ref1[_k];
+          if (s) {
+            cb(s, data_addr);
+          }
         }
-        if (s.length < 4 && __indexOf.call(s, '\ufffd') >= 0) {
-          continue;
-        }
-        cb(s, j - partial.length);
       }
     }
   };
