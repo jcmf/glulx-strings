@@ -375,7 +375,7 @@
   };
 
   exports.extract_t3_strings = function(bytes, cb) {
-    var b, block_size, block_start, data_addr, data_end, data_start, decoded, encoded, i, j, partial, pool_id, s, xor_mask, _i, _j, _k, _len, _ref, _ref1;
+    var b, block_size, block_start, data_addr, data_end, data_start, decoded, encoded, i, j, pool_id, s, xor_mask, _i, _j, _k, _len, _ref, _ref1;
     if (!exports.is_t3(bytes)) {
       return;
     }
@@ -423,7 +423,7 @@
             return new Buffer(encoded).toString();
           } catch (_error) {}
         })();
-        partial = [];
+        encoded = [];
         if (!decoded) {
           continue;
         }

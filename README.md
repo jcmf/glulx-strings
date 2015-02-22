@@ -689,16 +689,17 @@ bother.
 Let's just, uh, dump anything that appears in a constant data pool
 and looks like moderately well-formed UTF-8.  Break on NULs and
 control characters, on the theory that those aren't likely to appear
-in strings and if they do who cares.
+in strings and if they do who cares.  I mean probably there are
+newlines but we can split on newlines, nobody is going to be upset
+if we do that, surely.
 
 Going to lean on the Buffer constructor to do the UTF-8 decode for
 us.  It looks like it quietly replaces invalid sequences with code
 point 0xfffd, good old REPLACEMENT CHARACTER, the little question
 mark in a diamond that shows up when something went wrong, so I'll
-just, uh, do something dodgy with those I guess.  I stuck a try in
-there just in case it occasionally decides to be less quiet, because
-the API docs I'm looking at seem suspiciously thin and I'm feeling
-paranoid.
+just, uh, split on those too, I guess?  I stuck a try in there just
+in case it occasionally decides to be less quiet, because the API
+docs I'm looking at seem suspiciously thin and I'm feeling paranoid.
 
 Maybe in some later version I can scan bytecode for string start
 addresses and use that to help disambiguate?  I wonder if that would
@@ -732,7 +733,7 @@ no separator.  Lengths must be elsewhere.
           if not encoded.length then continue
           data_addr = j - encoded.length
           decoded = try new Buffer(encoded).toString()
-          partial = []
+          encoded = []
           if not decoded then continue
           for s in decoded.split '\ufffd'
             if s then cb s, data_addr
