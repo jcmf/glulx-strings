@@ -661,10 +661,10 @@ callback.
         cb {usage, number, type, bytes: bytes[res_start...res_end]}
       return
 
-### TADS
+### TADS 3
 
-Can we do TADS?  I just ran across a TADS game and I tried running `strings`
-on it and the results were disappointing.
+Can we do TADS?  I just ran across a TADS 3 game and I tried running
+`strings` on it and the results were disappointing.
 
 Aha, yes, check out the [T3 VM Image File Format
 spec](http://www.tads.org/t3doc/doc/techman/t3spec/format.htm).
@@ -754,6 +754,176 @@ could it be to just decode proper UTF-8?  Will whatever's rendering
 the glyphs quietly deal with any surrogates that might crop up, or
 will I be expected to normalize?
 
+### TADS 2
+
+Oops, here's a TADS 2 `.gam` file.  Doesn't seem to work.  `strings`
+doesn't like it.  Completely different format, apparently.  I haven't
+been able to find documentation for the file format, but this
+[Jetty](http://inky.org/if/jetty/) thing has source code.  I'm
+mostly interested in `GameFileParser.java`.
+
+I should probably just make a general-purpose function that checks whether
+a thing starts with a certain byte sequence.
+
+    exports.is_tads2 = (bytes) ->
+      magic = 'TADS2 bin\x0a\x0d\x1a\x00'
+      if bytes.length < magic.length then return false
+      for ch, i in magic
+        if bytes[i] != ch.charCodeAt 0 then return false
+      return true
+
+    exports.extract_tads2_strings = (bytes, cb) ->
+      if not exports.is_tads2 bytes then return
+
+So let's see.  Looks like we're going to want to read through this
+in order, mostly?  Sometimes from `bytes`, and sometimes from
+decrypted buffers that we extracted from inside it.  I'll define
+decryption later.  First, let's make a thing to keep track of our
+current position and extract unsigned little-endian numbers while
+advancing that position.  I see something about the 32-bit thing
+being signed but that seems dumb and is inconvenient for me because
+it complicates my bounds-checking, so I'll pretend it's unsigned,
+as usual.
+
+      decrypt = (buf) -> buf
+      class Stream
+        constructor: (@buf, @base = 0, @pos = 0, @end = @buf.length) ->
+        len: -> @end - @pos
+        eof: -> not @len() > 0  # true if @len() becomes NaN!
+        skip: (len) -> @pos += len
+        seek: (addr) -> @pos = addr - @base
+        tell: -> @base + @pos
+        u8: -> if @eof() then throw new Error 'eof' else @buf[@pos++]
+        u16: -> @u8() + 0x100*@u8()
+        u32: -> @u16() + 0x10000*@u16()
+        copy: (len = @len()) ->
+          if len > @len() then len = @len
+          new Stream @buf, @base, @pos, @pos += len
+        bytes: (len = @len()) -> (@u8() for i in [0...len] when not @eof())
+        decrypt: (len) ->
+          base = @tell()
+          buf = decrypt @bytes len
+          new Stream buf, base, 0, buf.length
+
+And I guess strings are encoded in... whatever Java's default
+platform encoding might typically have been in 2002?  Let's go with
+ISO Latin 1, I guess?  I hope we don't need CP1252 for this.
+
+        str: (len) ->
+          (String.fromCharCode byte for byte in @bytes len).join ''
+        extract: (len) ->
+          data_addr = @tell()
+          s = @str len
+          if s then cb s, data_addr
+
+We're going to need to be able to skip over some NUL-terminated
+strings, I guess?  Let's make things to skip past a particular
+byte and/or extract the string in between.
+
+        skip_past: (byte) ->
+          while @u8() != byte
+            if @eof() then return
+          return
+        extract_to: (byte) ->
+          start = @pos
+          @skip_past byte
+          len = @pos - 1 - start
+          @pos = start
+          @extract len
+          @skip 1
+
+Make a Stream representing the whole input file:
+
+      stream = new Stream bytes
+
+And use it to extract the magic number, and the version.  Because
+I just decided that those are kinda like strings and we may as well
+show them.
+
+      stream.extract_to 0x0a
+      stream.skip_past 0
+      stream.extract_to 0
+
+Now some flags.  If this bit is set (and apparently it almost always
+is?), we need to enable "decryption."  Or "encryption," same thing,
+it's symmetric that way.
+
+      if stream.u16() & 8
+        xor_seed = 63
+        xor_inc = 64
+        decrypt = (bytes) ->
+          xor_value = xor_seed
+          for byte in bytes
+            byte ^= xor_value
+            xor_value += xor_inc
+            xor_value &= 0xff
+            byte
+
+Timestamp is a string?  Extract it!
+
+      stream.extract_to 0
+
+Okay, now we read various named blocks and do exciting things with
+them.
+
+      loop
+        name = stream.str stream.u8()
+        next_pos = stream.u32()
+        console.log "XXX name=#{name} next_pos=#{next_pos} stream.tell()=#{stream.tell()}"
+        block = stream.copy next_pos - stream.tell()
+        console.log "XXX block.len()=#{block.len()}"
+        if block.eof() then return
+        switch name
+          when '$EOF' then return
+          when 'XSI'
+            xor_seed = block.u8()
+            xor_inc = block.u8()
+          when 'OBJ' then while not block.eof()
+            type = block.u8()
+            id = block.u16()
+            switch type
+
+Object type 1 is a function object, containing bytecode.  It's
+obfuscated, so there must be strings in there, right?  There are
+clues about opcodes in `CodeRunner.java`.  Looks like OPCSAY (29)
+and OPCPUSHSTR (31) are followed by counted strings.  Let's just
+do a dumb scan for those, discarding potential strings with obviously
+invalid endpoints or those that would contain at least one NUL byte.
+
+              when 1 then do ->
+                len = block.u16()  # always the same as cache_len?
+                cache_len = block.u16()
+                addr = block.tell()
+                code = block.decrypt(cache_len).bytes()
+                for byte, pos in code
+                  if byte in [29, 31]
+                    data_len = code[pos+1] + 0x100*code[pos+2] - 2
+                    data_start = pos + 3
+                    data_end = data_start + data_len
+                    if data_len > 0 and data_end <= code.length
+                      code_addr = addr + pos
+                      data_addr = addr + data_start
+                      bad = false
+                      chars = for b in code[data_start...data_end]
+                        if b is 0 then bad = true
+                        String.fromCharCode b
+                      if not bad
+                        s = chars.join ''
+                        cb s, data_addr, code_addr
+
+Still need to deal with other object types.
+
+              when 2 then do ->
+                len = block.u16()  # always the same as cache_len?
+                cache_len = block.u16()
+                console.log "XXX skipping type=#{type} id=#{id} len=#{len} cache_len=#{len}"
+                block.skip cache_len
+              else
+                console.log 'XXX unknown object type=#{type} id=#{id}'
+                break
+        stream.seek next_pos
+        console.log "XXX next_pos=#{next_pos} stream.tell()=#{stream.tell()} stream.pos=#{stream.pos} stream.base=#{stream.base}"
+
 ### ADRIFT
 
 So, uh, gosh, I ran into this ADRIFT game (blorbed, no less!) and
@@ -808,6 +978,7 @@ there's a library....
     exports.extract_strings = (bytes, cb) ->
       exports.extract_glulx_strings bytes, cb
       exports.extract_zcode_strings bytes, cb
+      exports.extract_tads2_strings bytes, cb
       exports.extract_t3_strings bytes, cb
       exports.unblorb {bytes, usage: 'Exec'}, (resource) ->
         exports.extract_strings resource.bytes, cb

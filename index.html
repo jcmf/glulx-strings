@@ -489,9 +489,262 @@ p {
     }
   };
 
+  exports.is_tads2 = function(bytes) {
+    var ch, i, magic, _i, _len;
+    magic = 'TADS2 bin\x0a\x0d\x1a\x00';
+    if (bytes.length < magic.length) {
+      return false;
+    }
+    for (i = _i = 0, _len = magic.length; _i < _len; i = ++_i) {
+      ch = magic[i];
+      if (bytes[i] !== ch.charCodeAt(0)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  exports.extract_tads2_strings = function(bytes, cb) {
+    var Stream, block, decrypt, id, name, next_pos, stream, type, xor_inc, xor_seed;
+    if (!exports.is_tads2(bytes)) {
+      return;
+    }
+    decrypt = function(buf) {
+      return buf;
+    };
+    Stream = (function() {
+      function Stream(_at_buf, _at_base, _at_pos, _at_end) {
+        this.buf = _at_buf;
+        this.base = _at_base != null ? _at_base : 0;
+        this.pos = _at_pos != null ? _at_pos : 0;
+        this.end = _at_end != null ? _at_end : this.buf.length;
+      }
+
+      Stream.prototype.len = function() {
+        return this.end - this.pos;
+      };
+
+      Stream.prototype.eof = function() {
+        return !this.len() > 0;
+      };
+
+      Stream.prototype.skip = function(len) {
+        return this.pos += len;
+      };
+
+      Stream.prototype.seek = function(addr) {
+        return this.pos = addr - this.base;
+      };
+
+      Stream.prototype.tell = function() {
+        return this.base + this.pos;
+      };
+
+      Stream.prototype.u8 = function() {
+        if (this.eof()) {
+          throw new Error('eof');
+        } else {
+          return this.buf[this.pos++];
+        }
+      };
+
+      Stream.prototype.u16 = function() {
+        return this.u8() + 0x100 * this.u8();
+      };
+
+      Stream.prototype.u32 = function() {
+        return this.u16() + 0x10000 * this.u16();
+      };
+
+      Stream.prototype.copy = function(len) {
+        if (len == null) {
+          len = this.len();
+        }
+        if (len > this.len()) {
+          len = this.len;
+        }
+        return new Stream(this.buf, this.base, this.pos, this.pos += len);
+      };
+
+      Stream.prototype.bytes = function(len) {
+        var i, _i, _results;
+        if (len == null) {
+          len = this.len();
+        }
+        _results = [];
+        for (i = _i = 0; 0 <= len ? _i < len : _i > len; i = 0 <= len ? ++_i : --_i) {
+          if (!this.eof()) {
+            _results.push(this.u8());
+          }
+        }
+        return _results;
+      };
+
+      Stream.prototype.decrypt = function(len) {
+        var base, buf;
+        base = this.tell();
+        buf = decrypt(this.bytes(len));
+        return new Stream(buf, base, 0, buf.length);
+      };
+
+      Stream.prototype.str = function(len) {
+        var byte;
+        return ((function() {
+          var _i, _len, _ref, _results;
+          _ref = this.bytes(len);
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            byte = _ref[_i];
+            _results.push(String.fromCharCode(byte));
+          }
+          return _results;
+        }).call(this)).join('');
+      };
+
+      Stream.prototype.extract = function(len) {
+        var data_addr, s;
+        data_addr = this.tell();
+        s = this.str(len);
+        if (s) {
+          return cb(s, data_addr);
+        }
+      };
+
+      Stream.prototype.skip_past = function(byte) {
+        while (this.u8() !== byte) {
+          if (this.eof()) {
+            return;
+          }
+        }
+      };
+
+      Stream.prototype.extract_to = function(byte) {
+        var len, start;
+        start = this.pos;
+        this.skip_past(byte);
+        len = this.pos - 1 - start;
+        this.pos = start;
+        this.extract(len);
+        return this.skip(1);
+      };
+
+      return Stream;
+
+    })();
+    stream = new Stream(bytes);
+    stream.extract_to(0x0a);
+    stream.skip_past(0);
+    stream.extract_to(0);
+    if (stream.u16() & 8) {
+      xor_seed = 63;
+      xor_inc = 64;
+      decrypt = function(bytes) {
+        var byte, xor_value, _i, _len, _results;
+        xor_value = xor_seed;
+        _results = [];
+        for (_i = 0, _len = bytes.length; _i < _len; _i++) {
+          byte = bytes[_i];
+          byte ^= xor_value;
+          xor_value += xor_inc;
+          xor_value &= 0xff;
+          _results.push(byte);
+        }
+        return _results;
+      };
+    }
+    stream.extract_to(0);
+    while (true) {
+      name = stream.str(stream.u8());
+      next_pos = stream.u32();
+      console.log("XXX name=" + name + " next_pos=" + next_pos + " stream.tell()=" + (stream.tell()));
+      block = stream.copy(next_pos - stream.tell());
+      console.log("XXX block.len()=" + (block.len()));
+      if (block.eof()) {
+        return;
+      }
+      switch (name) {
+        case '$EOF':
+          return;
+        case 'XSI':
+          xor_seed = block.u8();
+          xor_inc = block.u8();
+          break;
+        case 'OBJ':
+          while (!block.eof()) {
+            type = block.u8();
+            id = block.u16();
+            switch (type) {
+              case 1:
+                (function() {
+                  var addr, b, bad, byte, cache_len, chars, code, code_addr, data_addr, data_end, data_len, data_start, len, pos, s, _i, _len, _results;
+                  len = block.u16();
+                  cache_len = block.u16();
+                  addr = block.tell();
+                  code = block.decrypt(cache_len).bytes();
+                  _results = [];
+                  for (pos = _i = 0, _len = code.length; _i < _len; pos = ++_i) {
+                    byte = code[pos];
+                    if (byte === 29 || byte === 31) {
+                      data_len = code[pos + 1] + 0x100 * code[pos + 2] - 2;
+                      data_start = pos + 3;
+                      data_end = data_start + data_len;
+                      if (data_len > 0 && data_end <= code.length) {
+                        code_addr = addr + pos;
+                        data_addr = addr + data_start;
+                        bad = false;
+                        chars = (function() {
+                          var _j, _len1, _ref, _results1;
+                          _ref = code.slice(data_start, data_end);
+                          _results1 = [];
+                          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+                            b = _ref[_j];
+                            if (b === 0) {
+                              bad = true;
+                            }
+                            _results1.push(String.fromCharCode(b));
+                          }
+                          return _results1;
+                        })();
+                        if (!bad) {
+                          s = chars.join('');
+                          _results.push(cb(s, data_addr, code_addr));
+                        } else {
+                          _results.push(void 0);
+                        }
+                      } else {
+                        _results.push(void 0);
+                      }
+                    } else {
+                      _results.push(void 0);
+                    }
+                  }
+                  return _results;
+                })();
+                break;
+              case 2:
+                (function() {
+                  var cache_len, len;
+                  len = block.u16();
+                  cache_len = block.u16();
+                  console.log("XXX skipping type=" + type + " id=" + id + " len=" + len + " cache_len=" + len);
+                  return block.skip(cache_len);
+                })();
+                break;
+              default:
+                console.log('XXX unknown object type=#{type} id=#{id}');
+                break;
+            }
+          }
+      }
+      stream.seek(next_pos);
+      console.log("XXX next_pos=" + next_pos + " stream.tell()=" + (stream.tell()) + " stream.pos=" + stream.pos + " stream.base=" + stream.base);
+    }
+  };
+
   exports.extract_strings = function(bytes, cb) {
     exports.extract_glulx_strings(bytes, cb);
     exports.extract_zcode_strings(bytes, cb);
+    exports.extract_tads2_strings(bytes, cb);
     exports.extract_t3_strings(bytes, cb);
     exports.unblorb({
       bytes: bytes,
