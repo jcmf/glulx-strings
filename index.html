@@ -509,9 +509,6 @@ p {
     if (!exports.is_tads2(bytes)) {
       return;
     }
-    decrypt = function(buf) {
-      return buf;
-    };
     Stream = (function() {
       function Stream(_at_buf, _at_base, _at_pos, _at_end) {
         this.buf = _at_buf;
@@ -580,13 +577,6 @@ p {
         return _results;
       };
 
-      Stream.prototype.decrypt = function(len) {
-        var base, buf;
-        base = this.tell();
-        buf = decrypt(this.bytes(len));
-        return new Stream(buf, base, 0, buf.length);
-      };
-
       Stream.prototype.str = function(len) {
         var byte;
         return ((function() {
@@ -635,30 +625,26 @@ p {
     stream.extract_to(0x0a);
     stream.skip_past(0);
     stream.extract_to(0);
-    if (stream.u16() & 8) {
-      xor_seed = 63;
-      xor_inc = 64;
-      decrypt = function(bytes) {
-        var byte, xor_value, _i, _len, _results;
-        xor_value = xor_seed;
-        _results = [];
-        for (_i = 0, _len = bytes.length; _i < _len; _i++) {
-          byte = bytes[_i];
-          byte ^= xor_value;
-          xor_value += xor_inc;
-          xor_value &= 0xff;
-          _results.push(byte);
-        }
-        return _results;
-      };
-    }
+    decrypt = stream.u16() & 8 === 0 ? function(buf) {
+      return buf;
+    } : (xor_seed = 63, xor_inc = 64, decrypt = function(bytes) {
+      var byte, xor_value, _i, _len, _results;
+      xor_value = xor_seed;
+      _results = [];
+      for (_i = 0, _len = bytes.length; _i < _len; _i++) {
+        byte = bytes[_i];
+        byte ^= xor_value;
+        xor_value += xor_inc;
+        xor_value &= 0xff;
+        _results.push(byte);
+      }
+      return _results;
+    });
     stream.extract_to(0);
     while (true) {
       name = stream.str(stream.u8());
       next_pos = stream.u32();
-      console.log("XXX name=" + name + " next_pos=" + next_pos + " stream.tell()=" + (stream.tell()));
       block = stream.copy(next_pos - stream.tell());
-      console.log("XXX block.len()=" + (block.len()));
       if (block.eof()) {
         return;
       }
@@ -675,69 +661,64 @@ p {
             id = block.u16();
             switch (type) {
               case 1:
+              case 2:
                 (function() {
-                  var addr, b, bad, byte, cache_len, chars, code, code_addr, data_addr, data_end, data_len, data_start, len, pos, s, _i, _len, _results;
+                  var addr, b, bad, buf, byte, chars, data_end, data_len, data_start, len, pos, _i, _len, _results;
+                  block.skip(2);
                   len = block.u16();
-                  cache_len = block.u16();
                   addr = block.tell();
-                  code = block.decrypt(cache_len).bytes();
+                  buf = decrypt(block.bytes(len));
                   _results = [];
-                  for (pos = _i = 0, _len = code.length; _i < _len; pos = ++_i) {
-                    byte = code[pos];
-                    if (byte === 29 || byte === 31) {
-                      data_len = code[pos + 1] + 0x100 * code[pos + 2] - 2;
-                      data_start = pos + 3;
-                      data_end = data_start + data_len;
-                      if (data_len > 0 && data_end <= code.length) {
-                        code_addr = addr + pos;
-                        data_addr = addr + data_start;
-                        bad = false;
-                        chars = (function() {
-                          var _j, _len1, _ref, _results1;
-                          _ref = code.slice(data_start, data_end);
-                          _results1 = [];
-                          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-                            b = _ref[_j];
-                            if (b === 0) {
-                              bad = true;
-                            }
-                            _results1.push(String.fromCharCode(b));
-                          }
-                          return _results1;
-                        })();
-                        if (!bad) {
-                          s = chars.join('');
-                          _results.push(cb(s, data_addr, code_addr));
-                        } else {
-                          _results.push(void 0);
-                        }
-                      } else {
-                        _results.push(void 0);
-                      }
-                    } else {
-                      _results.push(void 0);
+                  for (pos = _i = 0, _len = buf.length; _i < _len; pos = ++_i) {
+                    byte = buf[pos];
+                    if (byte !== 3 && byte !== 9 && byte !== 29 && byte !== 31) {
+                      continue;
                     }
+                    data_start = pos + 3;
+                    data_len = buf[pos + 1] + 0x100 * buf[pos + 2] - 2;
+                    data_end = data_start + data_len;
+                    if ((data_len >= 2 && data_end + 1 <= buf.length && buf[data_start + 1] === (data_len - 2) & 0xff, buf[data_start + 2] === (data_len - 2) >> 8)) {
+                      data_start += 3;
+                      data_end += 1;
+                      data_len -= 2;
+                    }
+                    if (data_len < 0) {
+                      continue;
+                    }
+                    if (data_end > buf.length) {
+                      continue;
+                    }
+                    bad = false;
+                    chars = (function() {
+                      var _j, _len1, _ref, _results1;
+                      _ref = buf.slice(data_start, data_end);
+                      _results1 = [];
+                      for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+                        b = _ref[_j];
+                        if (b <= 3) {
+                          bad = true;
+                        }
+                        _results1.push(String.fromCharCode(b));
+                      }
+                      return _results1;
+                    })();
+                    if (bad) {
+                      continue;
+                    }
+                    _results.push(cb(chars.join(''), addr + data_start));
                   }
                   return _results;
                 })();
                 break;
-              case 2:
-                (function() {
-                  var cache_len, len;
-                  len = block.u16();
-                  cache_len = block.u16();
-                  console.log("XXX skipping type=" + type + " id=" + id + " len=" + len + " cache_len=" + len);
-                  return block.skip(cache_len);
-                })();
+              case 10:
+                block.skip(block.u8());
                 break;
               default:
-                console.log('XXX unknown object type=#{type} id=#{id}');
-                break;
+                block.skip(block.u16());
             }
           }
       }
       stream.seek(next_pos);
-      console.log("XXX next_pos=" + next_pos + " stream.tell()=" + (stream.tell()) + " stream.pos=" + stream.pos + " stream.base=" + stream.base);
     }
   };
 

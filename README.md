@@ -785,7 +785,6 @@ being signed but that seems dumb and is inconvenient for me because
 it complicates my bounds-checking, so I'll pretend it's unsigned,
 as usual.
 
-      decrypt = (buf) -> buf
       class Stream
         constructor: (@buf, @base = 0, @pos = 0, @end = @buf.length) ->
         len: -> @end - @pos
@@ -800,10 +799,6 @@ as usual.
           if len > @len() then len = @len
           new Stream @buf, @base, @pos, @pos += len
         bytes: (len = @len()) -> (@u8() for i in [0...len] when not @eof())
-        decrypt: (len) ->
-          base = @tell()
-          buf = decrypt @bytes len
-          new Stream buf, base, 0, buf.length
 
 And I guess strings are encoded in... whatever Java's default
 platform encoding might typically have been in 2002?  Let's go with
@@ -848,7 +843,9 @@ Now some flags.  If this bit is set (and apparently it almost always
 is?), we need to enable "decryption."  Or "encryption," same thing,
 it's symmetric that way.
 
-      if stream.u16() & 8
+      decrypt = if stream.u16() & 8 is 0
+        (buf) -> buf
+      else
         xor_seed = 63
         xor_inc = 64
         decrypt = (bytes) ->
@@ -869,9 +866,7 @@ them.
       loop
         name = stream.str stream.u8()
         next_pos = stream.u32()
-        console.log "XXX name=#{name} next_pos=#{next_pos} stream.tell()=#{stream.tell()}"
         block = stream.copy next_pos - stream.tell()
-        console.log "XXX block.len()=#{block.len()}"
         if block.eof() then return
         switch name
           when '$EOF' then return
@@ -883,46 +878,77 @@ them.
             id = block.u16()
             switch type
 
-Object type 1 is a function object, containing bytecode.  It's
-obfuscated, so there must be strings in there, right?  There are
-clues about opcodes in `CodeRunner.java`.  Looks like OPCSAY (29)
-and OPCPUSHSTR (31) are followed by counted strings.  Let's just
-do a dumb scan for those, discarding potential strings with obviously
-invalid endpoints or those that would contain at least one NUL byte.
+Object types 1 and 2 are functions and, uh, objects.  Both start
+out similarly: there's a length, there's ... another copy of the
+same length, for some reason?  Jetty ignores the first one, so let's
+just do that.  And then the given number of "encrypted" bytes.
 
-              when 1 then do ->
-                len = block.u16()  # always the same as cache_len?
-                cache_len = block.u16()
+              when 1, 2 then do ->
+                block.skip 2
+                len = block.u16()
                 addr = block.tell()
-                code = block.decrypt(cache_len).bytes()
-                for byte, pos in code
-                  if byte in [29, 31]
-                    data_len = code[pos+1] + 0x100*code[pos+2] - 2
-                    data_start = pos + 3
-                    data_end = data_start + data_len
-                    if data_len > 0 and data_end <= code.length
-                      code_addr = addr + pos
-                      data_addr = addr + data_start
-                      bad = false
-                      chars = for b in code[data_start...data_end]
-                        if b is 0 then bad = true
-                        String.fromCharCode b
-                      if not bad
-                        s = chars.join ''
-                        cb s, data_addr, code_addr
+                buf = decrypt block.bytes len
 
-Still need to deal with other object types.
+And now we can extract strings!  Could just scan for ASCII at this
+point, or we could do a full parse, or... gosh, whate are we even
+looking for in here?
 
-              when 2 then do ->
-                len = block.u16()  # always the same as cache_len?
-                cache_len = block.u16()
-                console.log "XXX skipping type=#{type} id=#{id} len=#{len} cache_len=#{len}"
-                block.skip cache_len
-              else
-                console.log 'XXX unknown object type=#{type} id=#{id}'
-                break
+Looks like strings can appear in bytecode (after the OPCSAY (29)
+or OPCPUSHSTR (31) opcode, either of which can appear in a function
+object or a CODE object, the latter of which can be a LIST element),
+or in a SSTRING (3) or DSTRING (9) property, or in a LIST with an
+SSTRING element.
+
+In all of these cases, the actual string is immediately preceded
+by a u16 length.  The opcodes and the SSTRING list element have the
+opcode or type byte right before the length, making identification
+easy.  The SSTRING or DSTRING properties have a (useless?) flag
+byte before the length, and another u16 length before that (which
+will be two more than the actual string length, because it excludes
+the flag byte but includes the other length bytes), and then the
+type byte before *that*.  Which is an even *more* distinctive
+pattern.
+
+So I'm going to blindly scan for some lazy superset of the above
+patterns, and then throw out the ones that have unlikely-looking
+control characters in them, to weed out almost all of the false
+positives.
+
+                for byte, pos in buf
+                  if byte not in [3, 9, 29, 31] then continue
+                  data_start = pos + 3
+                  data_len = buf[pos+1] + 0x100*buf[pos+2] - 2
+                  data_end = data_start + data_len
+                  if (data_len >= 2 and
+                      data_end+1 <= buf.length and
+                      buf[data_start+1] is (data_len-2) & 0xff
+                      buf[data_start+2] is (data_len-2) >> 8)
+                    data_start += 3
+                    data_end += 1
+                    data_len -= 2
+                  if data_len < 0 then continue
+                  if data_end > buf.length then continue
+                  bad = false
+                  chars = for b in buf[data_start...data_end]
+                    if b <= 3 then bad = true
+                    String.fromCharCode b
+                  if bad then continue
+                  cb chars.join(''), addr + data_start
+
+The rest of the object types are boring -- you can tell, because
+they don't bother to "encrypt" any of their contents.
+
+              when 10  # XFCN
+                block.skip block.u8()
+              else  # 7, 8 are "func/obj predecl"
+                block.skip block.u16()
+
+None of the other block types is interesting either.  Skip to the
+next block:
+
         stream.seek next_pos
-        console.log "XXX next_pos=#{next_pos} stream.tell()=#{stream.tell()} stream.pos=#{stream.pos} stream.base=#{stream.base}"
+
+That's it!  Seems to work!  Probably!
 
 ### ADRIFT
 
