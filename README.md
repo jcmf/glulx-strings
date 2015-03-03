@@ -25,9 +25,9 @@ helpful diagnostics in case it finds itself in an unexpected situation
 and does not know how else to proceed.
 
 Currently supported file formats include Glulx, Z-code versions 3
-(`.z3`) through 8 (`.z8`), TADS 3 (`.t3`), blorb files containing
-any of the above (`.gblorb`, `.zblorb`, etc), or `.zip` files
-containing any of those things.
+(`.z3`) through 8 (`.z8`), TADS 2 (`.gam`), TADS 3 (`.t3`), blorb
+files containing any of the above (`.gblorb`, `.zblorb`, etc), or
+`.zip` files containing any of those things.
 
 [Try it now.](http://toastball.net/glulx-strings/)
 
