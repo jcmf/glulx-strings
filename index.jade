@@ -50,7 +50,7 @@ html(lang='en')
           $failed = $ '#failed'
           $strings = $ '#strings'
           loadFiles = (files) ->
-            if not files then return
+            if not files?.length then return
             $loading.show()
             $failed.hide()
             $strings.empty()
@@ -74,8 +74,9 @@ html(lang='en')
           $body = $ 'body'
           dragDropFiles = (e) ->
             if files = e.originalEvent?.dataTransfer?.files
-              e.stopPropagation()
-              e.preventDefault()
+              if files.length
+                e.stopPropagation()
+                e.preventDefault()
             return files
           $body.on 'dragenter dragover', dragDropFiles
           $body.on 'drop', (e) -> loadFiles dragDropFiles e

@@ -774,7 +774,7 @@ p {
     $strings = $('#strings');
     loadFiles = function(files) {
       var file, reader, _i, _len;
-      if (!files) {
+      if (!(files != null ? files.length : void 0)) {
         return;
       }
       $loading.show();
@@ -813,8 +813,10 @@ p {
     dragDropFiles = function(e) {
       var files, _ref, _ref1;
       if (files = (_ref = e.originalEvent) != null ? (_ref1 = _ref.dataTransfer) != null ? _ref1.files : void 0 : void 0) {
-        e.stopPropagation();
-        e.preventDefault();
+        if (files.length) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
       }
       return files;
     };
