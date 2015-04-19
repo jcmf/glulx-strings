@@ -74,9 +74,8 @@ html(lang='en')
           $body = $ 'body'
           dragDropFiles = (e) ->
             if files = e.originalEvent?.dataTransfer?.files
-              if files.length
-                e.stopPropagation()
-                e.preventDefault()
+              e.stopPropagation()
+              e.preventDefault()
             return files
           $body.on 'dragenter dragover', dragDropFiles
           $body.on 'drop', (e) -> loadFiles dragDropFiles e
