@@ -41,7 +41,7 @@ html(lang='en')
         p
           line-height 1.2
     script
-      :coffeescript
+      :coffee-script
         {extract_strings} = require '.'
         $ = require 'jquery'
         $ ->
@@ -91,7 +91,7 @@ html(lang='en')
       #text
         h1= package.name
         .version version #{package.version}
-        :markdown
+        :markdown-it
           This program extracts text from Glulx or Z-code files,
           such as interactive fiction or text adventure games created
           by the Inform compiler.  It also knows about TADS 2 and
