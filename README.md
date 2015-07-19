@@ -444,6 +444,21 @@ we aren't supposed to let story files override that one either.
         0x0a3, 0x153, 0x152, 0x0a1, 0x0bf
       ]
 
+Okay fine, somebody noticed that em dashes weren't working in Z-code
+games, and I think it's because they need a custom Unicode table,
+so let's see if we can make that work.  Let's see, section 3.8.5.2...
+hmm, header extension table... aha, this is helpfully defined over
+in section 11.1.7.3, not that either section seems to mention the
+other... here, let's try this:
+
+      if version >= 5 then do ->
+        return if not hdr_ext_table = u16 0x36
+        hdr_ext_words = u16 hdr_ext_table
+        return if hdr_ext_words < 3
+        return if not unicode_addr = u16 hdr_ext_table + 6
+        unicode_table = for i in [0...bytes[unicode_addr]]
+          u16 unicode_addr + 1 + 2*i
+
 Now we can make a routine that decodes a string at a given byte
 address and returns it, or returns null if we can somehow tell that
 there's no valid string starting at that address.  I guess I'll try
