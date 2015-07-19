@@ -201,7 +201,7 @@
           shift = ref[k];
           z = (v >> shift) & 0x1f;
           if (abbrev) {
-            a = u16(abbrev_addr + 2 * (32 * (abbrev - 1) + z));
+            a = 2 * u16(abbrev_addr + 2 * (32 * (abbrev - 1) + z));
             piece = decode_string(a, true);
             abbrev = null;
             if (!piece) {
