@@ -579,11 +579,6 @@ put strings last), go with this candidate.
             strings_start = start
             strings_end = end
 
-Hmm, actually, I think the only way is_valid can wind up true is
-if our candidate region is at the end of the story file.  Right?
-So this could probably be simplified or improved somehow.  Anyway
-it kinda seems to work maybe?
-
 Now let's extract all the strings from the string table we found.
 
       do ->
