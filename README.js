@@ -245,41 +245,46 @@
     strings_start = strings_end = 0;
     align = version >= 8 ? 8 : version >= 4 ? 4 : 2;
     (function() {
-      var end, is_valid, results, start;
-      end = 0;
+      var addr, end, is_valid_pad, is_valid_string, results, start;
+      addr = 0;
       results = [];
       while (true) {
-        if (end % align !== 0) {
-          end += align - (end % align);
+        if (addr % align !== 0) {
+          addr += align - (addr % align);
         }
-        if (end >= bytes.length) {
+        if (addr >= bytes.length) {
           break;
         }
-        start = end;
-        is_valid = true;
-        while (end < bytes.length) {
-          while (bytes[end] < 128) {
-            if (end >= bytes.length) {
-              is_valid = false;
+        start = end = addr;
+        is_valid_string = true;
+        while (addr < bytes.length) {
+          while (bytes[addr] < 128) {
+            if (addr >= bytes.length) {
               break;
             }
-            end += 2;
+            addr += 2;
           }
-          end += 2;
-          while (is_valid && end % align !== 0) {
-            if (end >= bytes.length) {
-              break;
-            }
-            if (bytes[end] !== 0) {
-              is_valid = false;
-            }
-            end += 1;
-          }
-          if (!is_valid) {
+          if (addr >= bytes.length) {
             break;
           }
+          addr += 2;
+          end = addr;
+          is_valid_pad = true;
+          while (is_valid_pad && addr % align !== 0) {
+            if (addr >= bytes.length) {
+              break;
+            }
+            if (bytes[addr] !== 0) {
+              is_valid_pad = false;
+            }
+            addr += 1;
+          }
+          if (!is_valid_pad) {
+            break;
+          }
+          end = addr;
         }
-        if (is_valid && end - start >= strings_end - strings_start) {
+        if (end - start >= strings_end - strings_start) {
           strings_start = start;
           results.push(strings_end = end);
         } else {

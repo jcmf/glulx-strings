@@ -537,45 +537,50 @@ space for the largest such region we can find.
       strings_start = strings_end = 0
       align = if version >= 8 then 8 else if version >= 4 then 4 else 2
       do ->
-        end = 0
+        addr = 0
         loop
-          if end % align != 0
-            end += align - (end % align)
-          if end >= bytes.length then break
-          start = end
+          if addr % align != 0 then addr += align - (addr % align)
+          if addr >= bytes.length then break
+          start = end = addr
 
-See how far we can extend the next candidate region, which we'll
-call bytes[start...end], by skipping over things that could be valid
-strings.  We'll just look at the end-of-string bit, which is the
-most significant bit of every even-numbered byte.  If we find an
-obvious clue that this is not the string table, we'll set is_valid
-to false and move on.
+So far our next candidate region (bytes[start...end]) is empty.
+See how far we can extend it.  We start by skipping over the next
+potentially valid string.  We'll just look at the end-of-string
+bit, which is the most significant bit of every even-numbered byte.
+We're guaranteed to find this, unless we hit the end of the story file
+first, in which case this must not have been a valid string after all.
 
-          is_valid = true
-          while end < bytes.length
-            while bytes[end] < 128
-              if end >= bytes.length
-                is_valid = false
-                break
-              end += 2
-            end += 2
+          is_valid_string = true
+          while addr < bytes.length
+            while bytes[addr] < 128
+              if addr >= bytes.length then break
+              addr += 2
+            if addr >= bytes.length then break
+            addr += 2
+            end = addr
 
-Okay, we found the end of a (potential) string!  If this is really
-our string table, then the only thing between here and the next
-aligned string should be zero padding.  This is totally cheating
-but it seems to work pretty well.
+Okay, we found the end of what might be a string in the string
+table!  So far so good.  The string table could end here, and it
+would be valid, for all we can tell.  But if the table extends past
+this point, then the only thing between here and the next aligned
+string should be zero padding.  This is totally cheating but it
+seems to work pretty well.  This next bit is basically what lets
+us distinguish between the actual string table and random garbage.
 
-            while is_valid and end % align != 0
-              if end >= bytes.length then break
-              if bytes[end] != 0 then is_valid = false
-              end += 1
-            if not is_valid then break
+            is_valid_pad = true
+            while is_valid_pad and addr % align != 0
+              if addr >= bytes.length then break
+              if bytes[addr] != 0 then is_valid_pad = false
+              addr += 1
+            if not is_valid_pad then break
+            end = addr
 
-If our current candidate region is valid, and it's larger than our
-previously winning candidate (or occurs later -- Inform seems to
-put strings last), go with this candidate.
+If our current candidate region is larger than our previously winning
+candidate, go with this candidate.  If there's a tie, go with the
+latest candidate, since Inform seems to like to put the strings
+table later in the file.
 
-          if is_valid and end - start >= strings_end - strings_start
+          if end - start >= strings_end - strings_start
             strings_start = start
             strings_end = end
 
@@ -590,12 +595,11 @@ Now let's extract all the strings from the string table we found.
           else
             cb s.s, addr, addr
             addr = s.addr
-            if addr % align != 0
-              addr += align - (addr % align)
+            if addr % align != 0 then addr += align - (addr % align)
 
-Now let's finish up by scanning the rest of the address space for
-strings inlined into code with the "print" or "print_ret" instructions,
-in case there's something interesting hiding in there.
+And now let's finish up by scanning the rest of the address space
+for strings inlined into code with the "print" or "print_ret"
+instructions, in case there's something interesting hiding in there.
 
       do ->
         code_addr = 0
