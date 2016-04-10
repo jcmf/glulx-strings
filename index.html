@@ -183,7 +183,7 @@ p {
   };
 
   exports.extract_zcode_strings = function(bytes, cb) {
-    var a0, a1, a2, abbrev_addr, code_addr, data_addr, decode_string, k, objname_addr, ref, s, u16, unicode_table, unpack_addr, version;
+    var a0, a1, a2, abbrev_addr, align, decode_string, strings_end, strings_start, u16, unicode_table, version;
     if (!exports.is_zcode(bytes)) {
       return;
     }
@@ -192,46 +192,6 @@ p {
     };
     version = bytes[0];
     abbrev_addr = u16(0x18);
-    unpack_addr = (function() {
-      switch (version) {
-        case 1:
-        case 2:
-        case 3:
-          return function(packed_addr) {
-            return 2 * packed_addr;
-          };
-        case 4:
-        case 5:
-          return function(packed_addr) {
-            return 4 * packed_addr;
-          };
-        case 6:
-        case 7:
-          return (function() {
-            var S_O;
-            S_O = 8 * u16(0x2a);
-            return function(packed_addr) {
-              return 4 * packed_addr + S_O;
-            };
-          })();
-        case 8:
-          return function(packed_addr) {
-            return 8 * packed_addr;
-          };
-        default:
-          return function() {
-            return bytes.length;
-          };
-      }
-    })();
-    objname_addr = (function() {
-      var offset, ref, stride;
-      ref = version < 4 ? [2 * 31, 9] : [2 * 63, 14], offset = ref[0], stride = ref[1];
-      offset += stride - 2 + u16(0x0a);
-      return function(obj_num) {
-        return u16(obj_num * stride + offset);
-      };
-    })();
     a0 = 'abcdefghijklmnopqrstuvwxyz';
     a1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     a2 = 'x\n0123456789.,!?_#\'"/\\-:()';
@@ -281,7 +241,7 @@ p {
             if (!piece) {
               return;
             }
-            pieces.push(piece);
+            pieces.push(piece.s);
           } else if (tenbit) {
             tenbit.push(z);
             if (tenbit.length < 2) {
@@ -326,28 +286,96 @@ p {
           }
         }
         if (v >> 15) {
-          return pieces.join('');
+          return {
+            addr: addr,
+            s: pieces.join('')
+          };
         }
       }
     };
-    for (code_addr = k = 0, ref = bytes.length; 0 <= ref ? k < ref : k > ref; code_addr = 0 <= ref ? ++k : --k) {
-      data_addr = (function() {
-        switch (bytes[code_addr]) {
-          case 135:
-            return u16(code_addr + 1);
-          case 138:
-            return objname_addr(u16(code_addr + 1));
-          case 141:
-            return unpack_addr(u16(code_addr + 1));
-          case 178:
-          case 179:
-            return code_addr + 1;
+    strings_start = strings_end = 0;
+    align = version >= 8 ? 8 : version >= 4 ? 4 : 2;
+    (function() {
+      var end, is_valid, results, start;
+      end = 0;
+      results = [];
+      while (true) {
+        if (end % align !== 0) {
+          end += align - (end % align);
         }
-      })();
-      if (data_addr && (s = decode_string(data_addr))) {
-        cb(s, data_addr, code_addr);
+        if (end >= bytes.length) {
+          break;
+        }
+        start = end;
+        is_valid = true;
+        while (end < bytes.length) {
+          while (bytes[end] < 128) {
+            if (end >= bytes.length) {
+              is_valid = false;
+              break;
+            }
+            end += 2;
+          }
+          end += 2;
+          while (is_valid && end % align !== 0) {
+            if (end >= bytes.length) {
+              break;
+            }
+            if (bytes[end] !== 0) {
+              is_valid = false;
+            }
+            end += 1;
+          }
+          if (!is_valid) {
+            break;
+          }
+        }
+        if (is_valid && end - start >= strings_end - strings_start) {
+          strings_start = start;
+          results.push(strings_end = end);
+        } else {
+          results.push(void 0);
+        }
       }
-    }
+      return results;
+    })();
+    (function() {
+      var addr, results, s;
+      addr = strings_start;
+      results = [];
+      while (addr < strings_end) {
+        s = decode_string(addr);
+        if (!s) {
+          results.push(addr += align);
+        } else {
+          cb(s.s, addr, addr);
+          addr = s.addr;
+          if (addr % align !== 0) {
+            results.push(addr += align - (addr % align));
+          } else {
+            results.push(void 0);
+          }
+        }
+      }
+      return results;
+    })();
+    (function() {
+      var code_addr, data_addr, ref, results, s;
+      code_addr = 0;
+      results = [];
+      while (code_addr < strings_start) {
+        code_addr += 1;
+        if ((ref = bytes[code_addr]) !== 178 && ref !== 179) {
+          continue;
+        }
+        if (!(s = decode_string(data_addr = code_addr + 1))) {
+          continue;
+        }
+        cb(s.s, data_addr, code_addr);
+        results.push(code_addr = s.addr);
+      }
+      return results;
+    })();
   };
 
   exports.is_blorb = function(bytes) {
@@ -533,11 +561,11 @@ p {
       return;
     }
     Stream = (function() {
-      function Stream(buf1, base, pos1, end) {
+      function Stream(buf1, base, pos1, end1) {
         this.buf = buf1;
         this.base = base != null ? base : 0;
         this.pos = pos1 != null ? pos1 : 0;
-        this.end = end != null ? end : this.buf.length;
+        this.end = end1 != null ? end1 : this.buf.length;
       }
 
       Stream.prototype.len = function() {

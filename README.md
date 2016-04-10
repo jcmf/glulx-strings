@@ -394,33 +394,6 @@ use `bytes[addr]` for that.
       version = bytes[0]
       abbrev_addr = u16 0x18
 
-Speaking of other address formats, there's a version-dependent
-notion of a "packed address" for a string.  The next routine turns
-a packed string address into a byte offset.  If we don't recognize
-the file version, let's just always return an invalid address, so
-we'd just quietly fail to decode any packed string addresses while
-retaining the ability to decode other kinds of strings.  I mean I'm
-kinda hoping that there will never need to be a version 9, because
-that's kinda what Glulx already is, but who knows, right?
-
-      unpack_addr = switch version
-        when 1, 2, 3 then (packed_addr) -> 2*packed_addr
-        when 4, 5 then (packed_addr) -> 4*packed_addr
-        when 6, 7 then do ->
-          S_O = 8*u16 0x2a
-          (packed_addr) -> 4*packed_addr + S_O
-        when 8 then (packed_addr) -> 8*packed_addr
-        else -> bytes.length
-
-The structure of the object table is similarly version-dependent.
-This is useful because there's an instruction that prints object
-names.
-
-      objname_addr = do ->
-        [offset, stride] = if version < 4 then [2*31, 9] else [2*63, 14]
-        offset += stride-2 + u16 0x0a
-        (obj_num) -> u16 obj_num*stride + offset
-
 Initialize the alphabet and Unicode tables.  The story file is
 supposed to be able to override these, but maybe I'll worry about
 that later.
@@ -460,10 +433,11 @@ other... here, let's try this:
           u16 unicode_addr + 1 + 2*i
 
 Now we can make a routine that decodes a string at a given byte
-address and returns it, or returns null if we can somehow tell that
-there's no valid string starting at that address.  I guess I'll try
-to be a bit strict about it, because the clues for where to find
-strings seem a bit less reliable than they did for Glulx.
+address and returns it (along with its end address), or returns
+null if we can somehow tell that there's no valid string starting
+at that address.  I guess I'll try to be a bit strict about it,
+because the clues for where to find strings seem a bit less reliable
+than they did for Glulx.
 
 You can read about the gory details in section 3 of the spec, but
 the basic idea here is that every string is always represented as
@@ -493,7 +467,7 @@ expanding abbreviations forever.
               piece = decode_string aa, true
               abbrev = null
               if not piece then return
-              pieces.push piece
+              pieces.push piece.s
             else if tenbit
               tenbit.push z
               if tenbit.length < 2 then continue
@@ -520,7 +494,7 @@ expanding abbreviations forever.
             else
               pieces.push a[z-6]
               a = a0
-          if v >> 15 then return pieces.join ''
+          if v >> 15 then return {addr, s: pieces.join ''}
 
 Wow, this spec is confusing.
 
@@ -540,34 +514,108 @@ length in there or something, rather than just lauching straight
 in to the list of pointers?  If so, is this described somewhere?
 Where?
 
-Okay, so!  How do we find strings?  The more I think about this,
-the more it seems like we're going to have to look for byte patterns
-that could be instructions that print strings.  I guess we can just
-scan the entire address space?
+Okay, so!  How do we find strings?  I originally tried to do something
+similar to what we were doing for Glulx, scanning the entire address
+space for things that looked like an instruction to print a single
+specific string, but it turns out this doesn't work very well for
+Z-code -- too many things look like valid pointers, so there's a
+lot of noise, and, worse, it turns out to be both possible and
+pretty common to compute the address of a string, so I was missing
+a bunch of strings.  Thanks to Andrew Schultz for bringing this to
+my attention.
 
-      for code_addr in [0...bytes.length]
-        data_addr = switch bytes[code_addr]
-          when 135 then u16 code_addr+1  # print_addr
-          when 138 then objname_addr u16 code_addr+1  # print_obj
-          when 141 then unpack_addr u16 code_addr+1  # print_paddr
-          when 178, 179 then code_addr+1  # print, print_ret
-        if data_addr and s = decode_string data_addr
-          cb s, data_addr, code_addr
+Instead, let's first focus on finding strings that could be targets
+of the "print_paddr" instruction, without even trying to figure out
+which code prints them.  (Even TXD just prints these strings without
+ever necessarily figuring out what refers to them, and it's doing
+a lot more work than I'm willing to do.)  We're going to cheat and
+rely on the fact that the compiler puts all these strings in the
+same region, which we will eventually refer to as
+bytes[strings_start...strings_end].  Let's scan the whole address
+space for the largest such region we can find.
+
+      strings_start = strings_end = 0
+      align = if version >= 8 then 8 else if version >= 4 then 4 else 2
+      do ->
+        end = 0
+        loop
+          if end % align != 0
+            end += align - (end % align)
+          if end >= bytes.length then break
+          start = end
+
+See how far we can extend the next candidate region, which we'll
+call bytes[start...end], by skipping over things that could be valid
+strings.  We'll just look at the end-of-string bit, which is the
+most significant bit of every even-numbered byte.  If we find an
+obvious clue that this is not the string table, we'll set is_valid
+to false and move on.
+
+          is_valid = true
+          while end < bytes.length
+            while bytes[end] < 128
+              if end >= bytes.length
+                is_valid = false
+                break
+              end += 2
+            end += 2
+
+Okay, we found the end of a (potential) string!  If this is really
+our string table, then the only thing between here and the next
+aligned string should be zero padding.  This is totally cheating
+but it seems to work pretty well.
+
+            while is_valid and end % align != 0
+              if end >= bytes.length then break
+              if bytes[end] != 0 then is_valid = false
+              end += 1
+            if not is_valid then break
+
+If our current candidate region is valid, and it's larger than our
+previously winning candidate (or occurs later -- Inform seems to
+put strings last), go with this candidate.
+
+          if is_valid and end - start >= strings_end - strings_start
+            strings_start = start
+            strings_end = end
+
+Hmm, actually, I think the only way is_valid can wind up true is
+if our candidate region is at the end of the story file.  Right?
+So this could probably be simplified or improved somehow.  Anyway
+it kinda seems to work maybe?
+
+Now let's extract all the strings from the string table we found.
+
+      do ->
+        addr = strings_start
+        while addr < strings_end
+          s = decode_string addr
+          if not s
+            addr += align
+          else
+            cb s.s, addr, addr
+            addr = s.addr
+            if addr % align != 0
+              addr += align - (addr % align)
+
+Now let's finish up by scanning the rest of the address space for
+strings inlined into code with the "print" or "print_ret" instructions,
+in case there's something interesting hiding in there.
+
+      do ->
+        code_addr = 0
+        while code_addr < strings_start
+          code_addr += 1
+          if bytes[code_addr] not in [178, 179]  # print, print_ret
+            continue
+          if not s = decode_string data_addr = code_addr + 1
+            continue
+          cb s.s, data_addr, code_addr
+          code_addr = s.addr
       return
 
-That actually seems to be doing something plausible!  I mean I
-haven't looked very carefully.  Maybe only one or two of the above
-opcodes is working right, and the rest are broken.  Or maybe there's
-some other thing entirely that I should be doing in order to get
-better coverage, like trying to walk the object table up front, or
-looking for other places that might point to strings in trickier
-ways, or something.
-
-Like, looking at Endless, Nameless, highlighted words often seem
-to be missing, at least in context.  Maybe because they're subroutines?
-I'm almost tempted to try to detect and inline those somehow.  But
-that way lies madness, surely -- the whole point of this exercise
-was to avoid writing a full disassembler....
+Wow, this seems to work a lot better than what I had before!  Let's
+see if Andrew Schultz can find any obvious problems with it....
 
 ### Blorb
 
