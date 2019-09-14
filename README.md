@@ -1055,13 +1055,43 @@ where `strings` works (or whatever, like maybe it'll end up being
 UTF-16-LE or something, I could totally see that), just, like,
 contact me through GitHub or whatever.
 
+### Quixe
+
+Lots of Inform games are published on the web now, using the
+[Quixe](https://eblong.com/zarf/glulx/quixe/) interpreter. The ones
+I've seen generally base64-encode the game file and embed it in a
+small Javascript wrapper. Seems like it might be nice to be able to extract
+those as well, no?
+
+Let's see, how to proceed? Looks like [this
+thing](https://github.com/erkyrath/quixe/blob/33d2b1b4bf5fd20c99c89683243a82cd9a1ecfd6/tools/game2js.py#L55)
+only has two different wrapper scripts, at least right now. I don't
+want to have to come back and change this later, though, so maybe
+we can try for something a bit more general? But I don't want to
+slow things down too much.
+
+Let's first take a quick look at the first few bytes to see if there
+are any non-ASCII characters, so we don't waste our time on something
+that isn't JS:
+
+    exports.unbase64 = (bytes, cb) ->
+      for i in [0...Math.max(200, bytes.length)]
+        if bytes[i] > 0x7e then return
+
+Now let's look for any base64-looking sequences that are long enough
+to be potentially interesting.  Probably easiest to optimistically
+convert the whole shebang to text up front, so we can use a regular
+expression.
+
+      buf = new Buffer bytes
+      for match in buf.toString('utf8').match(/[a-zA-Z0-9\/+]{999,}=?=?/g)
+        if match.length > 999
+          cb new Buffer match, 'base64'
+
 ### extract_strings
 
 And finally, a function that extracts strings from any of the above
 types of file.
-
-Actually why don't we make it work for `.zip` files too?  I think
-there's a library....
 
     exports.extract_strings = (bytes, cb) ->
       exports.extract_glulx_strings bytes, cb
@@ -1070,6 +1100,11 @@ there's a library....
       exports.extract_t3_strings bytes, cb
       exports.unblorb {bytes, usage: 'Exec'}, (resource) ->
         exports.extract_strings resource.bytes, cb
+      exports.unbase64 bytes, (payload) -> exports.extract_strings payload, cb
+
+Actually why don't we make it work for `.zip` files too?  I think
+there's a library....
+
       if require('is-zip') bytes
         require('zip').Reader(bytes).forEach (entry) ->
           exports.extract_strings entry.getData(), cb

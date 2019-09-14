@@ -778,6 +778,27 @@ p {
     }
   };
 
+  exports.unbase64 = function(bytes, cb) {
+    var buf, i, k, l, len1, match, ref, ref1, results;
+    for (i = k = 0, ref = Math.max(200, bytes.length); 0 <= ref ? k < ref : k > ref; i = 0 <= ref ? ++k : --k) {
+      if (bytes[i] > 0x7e) {
+        return;
+      }
+    }
+    buf = new Buffer(bytes);
+    ref1 = buf.toString('utf8').match(/[a-zA-Z0-9\/+]{999,}=?=?/g);
+    results = [];
+    for (l = 0, len1 = ref1.length; l < len1; l++) {
+      match = ref1[l];
+      if (match.length > 999) {
+        results.push(cb(new Buffer(match, 'base64')));
+      } else {
+        results.push(void 0);
+      }
+    }
+    return results;
+  };
+
   exports.extract_strings = function(bytes, cb) {
     exports.extract_glulx_strings(bytes, cb);
     exports.extract_zcode_strings(bytes, cb);
@@ -788,6 +809,9 @@ p {
       usage: 'Exec'
     }, function(resource) {
       return exports.extract_strings(resource.bytes, cb);
+    });
+    exports.unbase64(bytes, function(payload) {
+      return exports.extract_strings(payload, cb);
     });
     if (require('is-zip')(bytes)) {
       return require('zip').Reader(bytes).forEach(function(entry) {
